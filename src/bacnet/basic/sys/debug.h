@@ -75,6 +75,13 @@ void debug_perror(const char *message);
 #define DEBUG_PRINTF debug_printf_disabled
 #endif
 
+#if PRINT_ENABLED
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__))
+#define _DEBUG(fmt, ...) printf("[%s:%d - %s]: " fmt "\n", __FILENAME__, __LINE__, __func__, ##__VA_ARGS__)
+#else
+#define _DEBUG(fmt, ...) ((void)0)
+#endif
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
