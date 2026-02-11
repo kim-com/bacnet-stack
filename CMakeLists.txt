@@ -89,6 +89,11 @@ option(
   "enable segmentation"
   ON)
 
+option(
+  MULTI_DEVICE
+  "enable support multi-device that must be used with BAC_ROUTING"
+  ON)
+
 if(NOT (BACDL_ETHERNET OR
         BACDL_MSTP OR
         BACDL_ARCNET OR
@@ -680,8 +685,6 @@ add_library(${PROJECT_NAME}
   src/bacnet/lso.h
   src/bacnet/memcopy.c
   src/bacnet/memcopy.h
-  src/bacnet/npdu.c
-  src/bacnet/npdu.h
   src/bacnet/property.c
   src/bacnet/property.h
   src/bacnet/proplist.c
@@ -725,6 +728,35 @@ add_library(${PROJECT_NAME}
   src/bacnet/youare.h
   $<$<BOOL:${UCI}>:src/bacnet/basic/ucix/ucix.c>
   $<$<BOOL:${UCI}>:src/bacnet/basic/ucix/ucix.h>)
+
+# BAC_ROUTING AND MULTI_DEVICE
+if(BAC_ROUTING AND MULTI_DEVICE)
+  target_sources(${PROJECT_NAME} PRIVATE 
+    # bacnet
+    # npdu.c Link order adjustment (ports/multi_device > src/bacnet)
+    ports/multi_device/bacnet/npdu.c
+    src/bacnet/npdu.c
+    src/bacnet/npdu.h
+  )
+
+  set(BACNET_MULTI_DEVICE_PORT_DIRECTORY_PATH ${CMAKE_CURRENT_LIST_DIR}/ports/multi_device)
+
+  # include directories
+  target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${BACNET_MULTI_DEVICE_PORT_DIRECTORY_PATH}>
+  )
+
+  target_link_options(${PROJECT_NAME} PUBLIC
+    -Wl,--wrap=npdu_encode_pdu
+  )
+else()
+  target_sources(${PROJECT_NAME} PRIVATE 
+    # bacnet
+    src/bacnet/npdu.c
+    src/bacnet/npdu.h
+  )
+endif()
+
 target_sources(
   ${PROJECT_NAME}
   PRIVATE
@@ -756,6 +788,7 @@ target_compile_definitions(
   $<$<BOOL:${BACNET_SEGMENTATION_ENABLED}>:BACNET_SEGMENTATION_ENABLED=1>
   $<$<BOOL:${BACFILE}>:BACFILE>
   $<$<BOOL:${BACNET_BACKUP_RESTORE}>:BACNET_BACKUP_RESTORE>
+  $<$<BOOL:${MULTI_DEVICE}>:MULTI_DEVICE>
   $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:BACNET_STACK_STATIC_DEFINE>
   PRIVATE
   PRINT_ENABLED=1)
@@ -1339,6 +1372,15 @@ install(
   FILES_MATCHING
   PATTERN "*.h")
 
+if(BAC_ROUTING AND MULTI_DEVICE)
+  install(
+    DIRECTORY ${BACNET_MULTI_DEVICE_PORT_DIRECTORY_PATH}
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT dev
+    FILES_MATCHING
+    PATTERN "*.h")
+endif()
+
 message(STATUS "BACNET: using cmake:....................\"${CMAKE_VERSION}\"")
 message(STATUS "BACNET: CMAKE_C_COMPILER_ID:............\"${CMAKE_C_COMPILER_ID}\"")
 message(STATUS "BACNET: CMAKE_C_COMPILER_VERSION:.......\"${CMAKE_C_COMPILER_VERSION}\"")
@@ -1358,3 +1400,4 @@ message(STATUS "BACNET: BACDL_ETHERNET:.................\"${BACDL_ETHERNET}\"")
 message(STATUS "BACNET: BACNET_SEGMENTATION_ENABLED:....\"${BACNET_SEGMENTATION_ENABLED}\"")
 message(STATUS "BACNET: BACNET_BACKUP_RESTORE:..........\"${BACNET_BACKUP_RESTORE}\"")
 message(STATUS "BACNET: BACFILE:........................\"${BACFILE}\"")
+message(STATUS "BACNET: MULTI_DEVICE:........................\"${MULTI_DEVICE}\"")
