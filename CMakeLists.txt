@@ -806,6 +806,36 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     $<$<BOOL:${BACDL_BSC}>:ports/linux/websocket-global.c>
     ports/linux/mstimer-init.c)
 
+    if(DEFINED TIZEN_BUILD)
+      set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0 -Wall -Wextra -fno-omit-frame-pointer")
+      set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBU} -g -O0 -Wall -Wextra -fno-omit-frame-pointer")
+
+      # Tizen Target for RPM 
+      set(PREFIX ${CMAKE_INSTALL_PREFIX})
+      set(BINDIR ${CMAKE_INSTALL_BINDIR})
+      set(LIBDIR ${CMAKE_INSTALL_LIBDIR})
+      set(INCDIR ${CMAKE_INSTALL_INCLUDEDIR})
+      set(VERSION ${CMAKE_PROJECT_VERSION})
+      set(PC_LDFLAGS -l${PROJECT_NAME})
+      set(PC_CFLAGS -I${CMAKE_INSTALL_INCLUDEDIR})
+      set(PC_DESCRIPTION "bacnet-stack")
+
+      configure_file(
+        ${PROJECT_NAME}.pc.in
+        ${PROJECT_NAME}.pc
+        @ONLY
+        )
+        
+      install(FILES ${CMAKE_SOURCE_DIR}/${PROJECT_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    else()
+      set(GBS_ROOT $ENV{HOME}/gbs-root)
+      set(GBS_TIZEN_ROOT
+        ${GBS_ROOT}/tizen-7.0/da-sac-dvmai/meson64/aarch64/mp/local/BUILD-ROOTS/scratch.aarch64.0
+      )
+      set(ENV{PKG_CONFIG_PATH} ${GBS_TIZEN_ROOT}/usr/lib64/pkgconfig)
+      set(ENV{PKG_CONFIG_SYSROOT_DIR} ${GBS_TIZEN_ROOT})
+    endif()
+
 elseif(WIN32)
   message(STATUS "BACNET: building for win32")
   set(BACNET_PORT_DIRECTORY_PATH ${CMAKE_CURRENT_LIST_DIR}/ports/win32)

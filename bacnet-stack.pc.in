@@ -1,0 +1,10 @@
+prefix=@PREFIX@
+exec_prefix=@BINDIR@
+libdir=@LIBDIR@
+includedir=@INCDIR@
+
+Name: @PROJECT_NAME@
+Description: @PC_DESCRIPTION@
+Version: @VERSION@
+Libs: @PC_LDFLAGS@
+Cflags: @PC_CFLAGS@
