@@ -1185,6 +1185,15 @@ if(BACNET_STACK_BUILD_APPS)
     )
   endif()
 
+  if(BAC_ROUTING)
+    add_executable(gateway_with_virtual_device apps/gateway_with_virtual_device/main.c apps/gateway_with_virtual_device/gateway_with_virtual_device.h)
+    target_link_libraries(gateway_with_virtual_device PRIVATE ${PROJECT_NAME})
+    target_compile_options(gateway_with_virtual_device PRIVATE
+      # Unreachable code because we have endless loop.
+      $<$<C_COMPILER_ID:MSVC>:/wd4702>
+    )
+  endif()
+
   add_executable(getevent apps/getevent/main.c)
   target_link_libraries(getevent PRIVATE ${PROJECT_NAME})
 
