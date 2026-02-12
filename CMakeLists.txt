@@ -15,6 +15,11 @@ option(
   ON)
 
 option(
+  BACNET_STACK_INSTALL_APPS
+  "install apps"
+  ON)
+
+option(
   BAC_ROUTING
   "enable bac routing"
   ON)
@@ -1492,6 +1497,94 @@ if(BAC_ROUTING AND MULTI_DEVICE)
     COMPONENT dev
     FILES_MATCHING
     PATTERN "*.h")
+endif()
+
+# Install applications if requested
+if(BACNET_STACK_INSTALL_APPS AND BACNET_STACK_BUILD_APPS)
+  message(STATUS "BACNET: installing applications")
+  
+  # Core applications
+  install(TARGETS abort ack-alarm add-list-element apdu create-object dcc delete-object
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  
+  install(TARGETS epics error getevent iam iamrouter initrouter
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  
+  install(TARGETS readfile readprop readpropm readrange remove-list-element reinit
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  
+  install(TARGETS scov server timesync ucov event uevent uptransfer whoami whohas whois whoisrouter
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  
+  install(TARGETS whatisnetnum netnumis writefile writegroup writeprop writepropm youare
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  
+  # Conditional applications
+  if(BAC_ROUTING)
+    install(TARGETS gateway
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+
+  if(BAC_ROUTING)
+    install(TARGETS gateway_with_virtual_device
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACDL_MSTP)
+    install(TARGETS mstpcap mstpcrc
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACNET_BUILD_PIFACE_APP)
+    install(TARGETS piface
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACNET_BUILD_SERVER_MINI_APP)
+    install(TARGETS bacmini
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACNET_BUILD_SERVER_BASIC_APP)
+    install(TARGETS bacbasic
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACNET_BUILD_BACPOLL_APP)
+    install(TARGETS bacpoll
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACNET_BUILD_BACDISCOVER_APP)
+    install(TARGETS bacdiscover
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACDL_BIP AND (NOT BACDL_BSC))
+    install(TARGETS readbdt readfdt
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(LIBCONFIG_LIBRARIES)
+    install(TARGETS router
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACDL_BIP AND BACDL_MSTP)
+    install(TARGETS router-mstp
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACDL_BIP AND BACDL_BIP6)
+    install(TARGETS router-ipv6
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
+  if(BACDL_BSC)
+    install(TARGETS sc-hub
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT apps)
+  endif()
+  
 endif()
 
 message(STATUS "BACNET: using cmake:....................\"${CMAKE_VERSION}\"")
