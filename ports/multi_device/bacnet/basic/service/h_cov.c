@@ -21,6 +21,7 @@
 #include "bacnet/reject.h"
 #include "bacnet/cov.h"
 #include "bacnet/dcc.h"
+#include "bacnet/basic/sys/debug.h"
 #if PRINT_ENABLED
 #include "bacnet/bactext.h"
 #endif
@@ -30,6 +31,23 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/debug.h"
 #include "bacnet/datalink/datalink.h"
+
+/* BAC_ROUTING support macros - abstract device context management */
+#ifdef BAC_ROUTING
+#define COV_GET_DEVICE_INDEX() Routed_Device_Object_Index()
+#define COV_SET_DEVICE_INDEX(idx) Set_Routed_Device_Object_Index(idx)
+#define COV_SUBSCRIPTION_DEVICE_MATCH(sub, dev_idx) \
+    ((sub)->device_index == (dev_idx))
+#define COV_SUBSCRIPTION_SET_DEVICE(sub)              \
+    do {                                              \
+        (sub)->device_index = COV_GET_DEVICE_INDEX(); \
+    } while (0)
+#else
+#define COV_GET_DEVICE_INDEX() 0
+#define COV_SET_DEVICE_INDEX(idx) ((void)0)
+#define COV_SUBSCRIPTION_DEVICE_MATCH(sub, dev_idx) (true)
+#define COV_SUBSCRIPTION_SET_DEVICE(sub) ((void)0)
+#endif
 
 #ifndef MAX_COV_PROPERTIES
 #define MAX_COV_PROPERTIES 2
@@ -55,6 +73,9 @@ typedef struct BACnet_COV_Subscription {
     uint32_t subscriberProcessIdentifier;
     uint32_t lifetime; /* optional */
     BACNET_OBJECT_ID monitoredObjectIdentifier;
+#ifdef BAC_ROUTING
+    uint16_t device_index; /* virtual device index for routing */
+#endif
 } BACNET_COV_SUBSCRIPTION;
 
 #ifndef MAX_COV_SUBCRIPTIONS
@@ -289,9 +310,12 @@ int handler_cov_encode_subscriptions(uint8_t *apdu, int max_apdu)
         };
         unsigned index = 0;
         int apdu_len = 0;
+        uint16_t current_device_index = COV_GET_DEVICE_INDEX();
 
         for (index = 0; index < MAX_COV_SUBCRIPTIONS; index++) {
-            if (COV_Subscriptions[index].flag.valid) {
+            if (COV_Subscriptions[index].flag.valid &&
+                COV_SUBSCRIPTION_DEVICE_MATCH(
+                    &COV_Subscriptions[index], current_device_index)) {
                 /* Lets encode a COV subscription into an intermediate buffer
                  * that can hold it */
                 int len = cov_encode_subscription(
@@ -333,6 +357,9 @@ void handler_cov_init(void)
         COV_Subscriptions[index].invokeID = 0;
         COV_Subscriptions[index].lifetime = 0;
         COV_Subscriptions[index].flag.send_requested = false;
+#ifdef BAC_ROUTING
+        COV_Subscriptions[index].device_index = 0;
+#endif
     }
     for (index = 0; index < MAX_COV_ADDRESSES; index++) {
         COV_Addresses[index].valid = false;
@@ -371,7 +398,9 @@ static bool cov_list_subscribe(
                  cov_data->monitoredObjectIdentifier.instance) &&
                 (COV_Subscriptions[index].subscriberProcessIdentifier ==
                  cov_data->subscriberProcessIdentifier) &&
-                address_match) {
+                address_match &&
+                COV_SUBSCRIPTION_DEVICE_MATCH(
+                    &COV_Subscriptions[index], COV_GET_DEVICE_INDEX())) {
                 existing_entry = true;
                 if (cov_data->cancellationRequest) {
                     /* initialize with invalid COV address */
@@ -384,6 +413,7 @@ static bool cov_list_subscribe(
                         cov_data->issueConfirmedNotifications;
                     COV_Subscriptions[index].lifetime = cov_data->lifetime;
                     COV_Subscriptions[index].flag.send_requested = true;
+                    COV_SUBSCRIPTION_SET_DEVICE(&COV_Subscriptions[index]);
                 }
                 if (COV_Subscriptions[index].invokeID) {
                     tsm_free_invoke_id(COV_Subscriptions[index].invokeID);
@@ -421,6 +451,7 @@ static bool cov_list_subscribe(
             COV_Subscriptions[index].invokeID = 0;
             COV_Subscriptions[index].lifetime = cov_data->lifetime;
             COV_Subscriptions[index].flag.send_requested = true;
+            COV_SUBSCRIPTION_SET_DEVICE(&COV_Subscriptions[index]);
         }
     } else if (!existing_entry) {
         if (first_invalid_index < 0) {
@@ -454,9 +485,15 @@ static bool cov_send_request(
     bool status = false; /* return value */
     BACNET_COV_DATA cov_data = { 0 };
     BACNET_ADDRESS *dest = NULL;
+    uint16_t saved_device_index = 0;
 
     if (!dcc_communication_enabled()) {
         return status;
+    }
+    /* Save current device context and switch to subscription's device */
+    saved_device_index = COV_GET_DEVICE_INDEX();
+    if (cov_subscription) {
+        COV_SET_DEVICE_INDEX(cov_subscription->device_index);
     }
 #if PRINT_ENABLED
     debug_fprintf(stderr, "COVnotification: requested\n");
@@ -469,6 +506,7 @@ static bool cov_send_request(
 #if PRINT_ENABLED
         debug_fprintf(stderr, "COVnotification: dest not found!\n");
 #endif
+        COV_SET_DEVICE_INDEX(saved_device_index);
         return status;
     }
     datalink_get_my_address(&my_address);
@@ -519,6 +557,8 @@ static bool cov_send_request(
     }
 
 COV_FAILED:
+    /* Restore original device context */
+    COV_SET_DEVICE_INDEX(saved_device_index);
 
     return status;
 }
@@ -628,6 +668,8 @@ bool handler_cov_fsm(void)
         case COV_STATE_MARK:
             /* mark any subscriptions where the value has changed */
             if (COV_Subscriptions[index].flag.valid) {
+                /* Switch to subscription's device context */
+                COV_SET_DEVICE_INDEX(COV_Subscriptions[index].device_index);
                 object_type = (BACNET_OBJECT_TYPE)COV_Subscriptions[index]
                                   .monitoredObjectIdentifier.type;
                 object_instance =
@@ -650,6 +692,8 @@ bool handler_cov_fsm(void)
             /* clear the COV flag after checking all subscriptions */
             if ((COV_Subscriptions[index].flag.valid) &&
                 (COV_Subscriptions[index].flag.send_requested)) {
+                /* Switch to subscription's device context */
+                COV_SET_DEVICE_INDEX(COV_Subscriptions[index].device_index);
                 object_type = (BACNET_OBJECT_TYPE)COV_Subscriptions[index]
                                   .monitoredObjectIdentifier.type;
                 object_instance =
@@ -697,6 +741,8 @@ bool handler_cov_fsm(void)
                     }
                 }
                 if (send) {
+                    /* Switch to subscription's device context */
+                    COV_SET_DEVICE_INDEX(COV_Subscriptions[index].device_index);
                     object_type = (BACNET_OBJECT_TYPE)COV_Subscriptions[index]
                                       .monitoredObjectIdentifier.type;
                     object_instance = COV_Subscriptions[index]
@@ -734,7 +780,10 @@ bool handler_cov_fsm(void)
 
 void handler_cov_task(void)
 {
-    handler_cov_fsm();
+    /* Run full FSM cycle (IDLE -> MARK -> CLEAR -> FREE -> SEND -> IDLE) */
+    while (!handler_cov_fsm()) {
+        /* continue until FSM returns to IDLE */
+    }
 }
 
 static bool cov_subscribe(

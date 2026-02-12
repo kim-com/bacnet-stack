@@ -374,8 +374,6 @@ add_library(${PROJECT_NAME}
   src/bacnet/basic/service/h_ccov.h
   src/bacnet/basic/service/h_create_object.c
   src/bacnet/basic/service/h_create_object.h
-  src/bacnet/basic/service/h_cov.c
-  src/bacnet/basic/service/h_cov.h
   src/bacnet/basic/service/h_dcc.c
   src/bacnet/basic/service/h_dcc.h
   src/bacnet/basic/service/h_delete_object.c
@@ -644,6 +642,10 @@ if(BAC_ROUTING AND MULTI_DEVICE)
     src/bacnet/npdu.c
     src/bacnet/npdu.h
 
+    # bacnet/basic/service
+    ports/multi_device/bacnet/basic/service/h_cov.c
+    ports/multi_device/bacnet/basic/service/h_cov.h
+
     # bacnet/basic/object
     ports/multi_device/bacnet/basic/object/access_credential.c
     ports/multi_device/bacnet/basic/object/access_credential.h
@@ -756,6 +758,11 @@ else()
     # bacnet
     src/bacnet/npdu.c
     src/bacnet/npdu.h
+    
+    # bacnet/basic/service
+    src/bacnet/basic/service/h_cov.c
+    src/bacnet/basic/service/h_cov.h
+    
     # bacnet/basic/object
     src/bacnet/basic/object/access_credential.c
     src/bacnet/basic/object/access_credential.h
