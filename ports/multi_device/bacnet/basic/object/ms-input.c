@@ -20,6 +20,7 @@
 #include "bacnet/wp.h"
 #include "bacnet/basic/sys/keylist.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/ms-input.h"
 
@@ -36,7 +37,7 @@ struct object_data {
     void *Context;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_MULTI_STATE_INPUT;
 /* callback for present value writes */
@@ -118,7 +119,8 @@ void Multistate_Input_Writable_Property_List(
  */
 static struct object_data *Multistate_Input_Object(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -129,7 +131,8 @@ static struct object_data *Multistate_Input_Object(uint32_t object_instance)
  */
 unsigned Multistate_Input_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -141,8 +144,9 @@ unsigned Multistate_Input_Instance_To_Index(uint32_t object_instance)
 uint32_t Multistate_Input_Index_To_Instance(unsigned index)
 {
     uint32_t instance = UINT32_MAX;
+    const int device_idx = Routed_Device_Object_Index();
 
-    (void)Keylist_Index_Key(Object_List, index, &instance);
+    (void)Keylist_Index_Key(Object_List[device_idx], index, &instance);
 
     return instance;
 }
@@ -153,7 +157,8 @@ uint32_t Multistate_Input_Index_To_Instance(unsigned index)
  */
 unsigned Multistate_Input_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -232,8 +237,9 @@ uint32_t Multistate_Input_Max_States(uint32_t object_instance)
 {
     uint32_t count = 0;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         count = state_name_count(pObject->State_Text);
     }
@@ -253,8 +259,9 @@ Multistate_Input_State_Text(uint32_t object_instance, uint32_t state_index)
 {
     const char *pName = NULL; /* return value */
     const struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (state_index > 0) {
             pName = state_name_by_index(pObject->State_Text, state_index);
@@ -315,8 +322,9 @@ bool Multistate_Input_State_Text_List_Set(
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->State_Text = state_text_list;
         status = true;
@@ -985,8 +993,9 @@ void Multistate_Input_Write_Disable(uint32_t object_instance)
 void *Multistate_Input_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1002,8 +1011,9 @@ void *Multistate_Input_Context_Get(uint32_t object_instance)
 void Multistate_Input_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1018,9 +1028,10 @@ uint32_t Multistate_Input_Create(uint32_t object_instance)
 {
     struct object_data *pObject = NULL;
     int index = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1030,9 +1041,9 @@ uint32_t Multistate_Input_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -1044,7 +1055,7 @@ uint32_t Multistate_Input_Create(uint32_t object_instance)
             pObject->Present_Value = 1;
             pObject->Write_Enabled = false;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1066,8 +1077,9 @@ bool Multistate_Input_Delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject = NULL;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1082,16 +1094,19 @@ bool Multistate_Input_Delete(uint32_t object_instance)
 void Multistate_Input_Cleanup(void)
 {
     struct object_data *pObject;
+    int device_idx;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1100,7 +1115,11 @@ void Multistate_Input_Cleanup(void)
  */
 void Multistate_Input_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    int device_idx;
+
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

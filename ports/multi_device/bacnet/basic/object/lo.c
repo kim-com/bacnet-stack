@@ -26,6 +26,7 @@
 #include "bacnet/basic/sys/lighting_command.h"
 #include "bacnet/bactext.h"
 #include "bacnet/proplist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/lo.h"
 
@@ -57,7 +58,7 @@ struct object_data {
     bool Color_Override : 1;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* callback for present value writes */
 static lighting_command_tracking_value_callback
     Lighting_Command_Tracking_Value_Callback;
@@ -199,7 +200,8 @@ bool Lighting_Output_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -214,7 +216,8 @@ bool Lighting_Output_Valid_Instance(uint32_t object_instance)
  */
 unsigned Lighting_Output_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -229,7 +232,8 @@ uint32_t Lighting_Output_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -245,7 +249,8 @@ uint32_t Lighting_Output_Index_To_Instance(unsigned index)
  */
 unsigned Lighting_Output_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -343,7 +348,8 @@ float Lighting_Output_Present_Value(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = Priority_Array_Next_Value(pObject, 0);
     }
@@ -368,7 +374,8 @@ static int Lighting_Output_Priority_Array_Encode(
     float real_value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (priority < BACNET_MAX_PRIORITY) {
             if (Priority_Array_Active(pObject, priority)) {
@@ -487,7 +494,8 @@ unsigned Lighting_Output_Present_Value_Priority(uint32_t object_instance)
     unsigned priority = 0; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         priority = Present_Value_Priority(pObject);
         if (priority > BACNET_MAX_PRIORITY) {
@@ -623,12 +631,13 @@ static void Lighting_Command_Blink_Stop(
     uint8_t priority)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
     switch (operation) {
         case BACNET_LIGHTS_WARN_OFF:
             /* writes the value 0.0% to the specified priority slot
                after a delay of Egress_Time seconds. */
-            pObject = Keylist_Data(Object_List, object_instance);
+            pObject = Keylist_Data(Object_List[device_idx], object_instance);
             if (pObject) {
                 (void)Present_Value_Set(pObject, 0.0, priority);
             }
@@ -636,7 +645,7 @@ static void Lighting_Command_Blink_Stop(
         case BACNET_LIGHTS_WARN_RELINQUISH:
             /* relinquishes the value at the specified priority slot
                after a delay of Egress_Time seconds. */
-            pObject = Keylist_Data(Object_List, object_instance);
+            pObject = Keylist_Data(Object_List[device_idx], object_instance);
             if (pObject) {
                 (void)Present_Value_Relinquish(pObject, priority);
             }
@@ -986,7 +995,8 @@ bool Lighting_Output_Present_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (priority && (priority <= BACNET_MAX_PRIORITY) &&
             (priority != 6 /* reserved */)) {
@@ -1133,7 +1143,8 @@ bool Lighting_Output_Priority_Array_Relinquished(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             if (!Priority_Array_Active(pObject, priority - 1)) {
@@ -1158,7 +1169,8 @@ float Lighting_Output_Priority_Array_Value(
     float value = 0.0f;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             value = pObject->Priority_Array[priority - 1];
@@ -1183,7 +1195,8 @@ bool Lighting_Output_Present_Value_Relinquish(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         Lighting_Command_Relinquish(pObject, priority);
@@ -1203,7 +1216,8 @@ bool Lighting_Output_Present_Value_Relinquish_All(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         Present_Value_Relinquish_All(pObject);
         status = true;
@@ -1269,7 +1283,8 @@ bool Lighting_Output_Object_Name(
     struct object_data *pObject;
     char name_text[48] = "LIGHTING-OUTPUT-4194303";
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -1298,7 +1313,8 @@ bool Lighting_Output_Name_Set(uint32_t object_instance, const char *new_name)
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -1317,7 +1333,8 @@ const char *Lighting_Output_Name_ASCII(uint32_t object_instance)
     const char *name = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -1337,7 +1354,8 @@ const char *Lighting_Output_Description(uint32_t object_instance)
     const char *name = NULL;
     const struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Description) {
             name = pObject->Description;
@@ -1363,7 +1381,8 @@ bool Lighting_Output_Description_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -1477,7 +1496,8 @@ bool Lighting_Output_Lighting_Command(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = lighting_command_copy(value, &pObject->Last_Lighting_Command);
     }
@@ -1502,7 +1522,8 @@ bool Lighting_Output_Lighting_Command_Set(
     float ramp_rate, step_increment;
     uint32_t fade_time;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value->use_priority) {
             priority = value->priority;
@@ -1673,7 +1694,8 @@ bool Lighting_Output_Lighting_Command_Refresh(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         lighting_command_refresh(&pObject->Lighting_Command);
         status = true;
@@ -1695,7 +1717,8 @@ Lighting_Output_In_Progress(uint32_t object_instance)
     BACNET_LIGHTING_IN_PROGRESS value = BACNET_LIGHTING_IDLE;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.In_Progress;
     }
@@ -1718,7 +1741,8 @@ bool Lighting_Output_In_Progress_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Lighting_Command.In_Progress = in_progress;
     }
@@ -1738,7 +1762,8 @@ float Lighting_Output_Tracking_Value(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.Tracking_Value;
     }
@@ -1760,7 +1785,8 @@ bool Lighting_Output_Tracking_Value_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Lighting_Command.Tracking_Value = value;
         status = true;
@@ -1782,7 +1808,8 @@ bool Lighting_Output_Blink_Warn_Enable(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Blink_Warn_Enable;
     }
@@ -1805,7 +1832,8 @@ bool Lighting_Output_Blink_Warn_Enable_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Blink_Warn_Enable = enable;
         status = true;
@@ -1843,7 +1871,8 @@ bool Lighting_Output_Blink_Warn_Feature_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* clamp the value */
         if (isless(off_value, 0.0)) {
@@ -1873,7 +1902,8 @@ uint32_t Lighting_Output_Egress_Time(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Egress_Time_Seconds;
     }
@@ -1895,7 +1925,8 @@ bool Lighting_Output_Egress_Time_Set(uint32_t object_instance, uint32_t seconds)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Egress_Time_Seconds = seconds;
         status = true;
@@ -1925,7 +1956,8 @@ static bool Lighting_Output_Egress_Time_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (value <= UINT32_MAX) {
@@ -1956,7 +1988,8 @@ bool Lighting_Output_Egress_Active(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Lighting_Command.Blink.Duration > 0) {
             value = true;
@@ -1979,7 +2012,8 @@ uint32_t Lighting_Output_Default_Fade_Time(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Fade_Time;
     }
@@ -2002,7 +2036,8 @@ bool Lighting_Output_Default_Fade_Time_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((milliseconds >= 100UL) && (milliseconds <= 86400000UL)) {
             pObject->Default_Fade_Time = milliseconds;
@@ -2034,7 +2069,8 @@ static bool Lighting_Output_Default_Fade_Time_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if ((value >= 100UL) && (value <= 86400000UL)) {
@@ -2065,7 +2101,8 @@ float Lighting_Output_Default_Ramp_Rate(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Ramp_Rate;
     }
@@ -2088,7 +2125,8 @@ bool Lighting_Output_Default_Ramp_Rate_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(percent_per_second, 0.1f) &&
             islessequal(percent_per_second, 100.0f)) {
@@ -2121,7 +2159,8 @@ static bool Lighting_Output_Default_Ramp_Rate_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (isgreaterequal(percent_per_second, 0.1f) &&
@@ -2153,7 +2192,8 @@ float Lighting_Output_Default_Step_Increment(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Step_Increment;
     }
@@ -2176,7 +2216,8 @@ bool Lighting_Output_Default_Step_Increment_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(step_increment, 0.1f) &&
             islessequal(step_increment, 100.0f)) {
@@ -2209,7 +2250,8 @@ static bool Lighting_Output_Default_Step_Increment_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (isgreaterequal(value, 0.1f) && islessequal(value, 100.0f)) {
@@ -2242,7 +2284,8 @@ unsigned Lighting_Output_Default_Priority(uint32_t object_instance)
     unsigned value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command_Default_Priority;
     }
@@ -2265,7 +2308,8 @@ bool Lighting_Output_Default_Priority_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= BACNET_MIN_PRIORITY) &&
             (priority <= BACNET_MAX_PRIORITY)) {
@@ -2290,7 +2334,8 @@ bool Lighting_Output_Out_Of_Service(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.Out_Of_Service;
     }
@@ -2310,7 +2355,8 @@ void Lighting_Output_Out_Of_Service_Set(uint32_t object_instance, bool value)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Lighting_Command.Out_Of_Service = value;
     }
@@ -2329,7 +2375,8 @@ float Lighting_Output_Relinquish_Default(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     value = Relinquish_Default_Value(pObject);
 
     return value;
@@ -2350,7 +2397,8 @@ bool Lighting_Output_Relinquish_Default_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(value, 0.0) && islessequal(value, 100.0)) {
             pObject->Relinquish_Default = value;
@@ -2382,7 +2430,8 @@ static bool Lighting_Output_Relinquish_Default_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (isgreaterequal(value, 0.0) && islessequal(value, 100.0)) {
@@ -2410,7 +2459,8 @@ float Lighting_Output_Last_On_Value(uint32_t object_instance)
     float value = 100.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.Last_On_Value;
     }
@@ -2430,7 +2480,8 @@ bool Lighting_Output_Last_On_Value_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(value, 1.0) && islessequal(value, 100.0)) {
             pObject->Lighting_Command.Last_On_Value = value;
@@ -2480,7 +2531,8 @@ float Lighting_Output_Default_On_Value(uint32_t object_instance)
     float value = 100.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.Default_On_Value;
     }
@@ -2500,7 +2552,8 @@ bool Lighting_Output_Default_On_Value_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(value, 1.0) && islessequal(value, 100.0)) {
             pObject->Lighting_Command.Default_On_Value = value;
@@ -2550,7 +2603,8 @@ float Lighting_Output_High_End_Trim(uint32_t object_instance)
     float value = 100.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.High_Trim_Value;
     }
@@ -2570,7 +2624,8 @@ bool Lighting_Output_High_End_Trim_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(value, 1.0) && islessequal(value, 100.0)) {
             pObject->Lighting_Command.High_Trim_Value = value;
@@ -2620,7 +2675,8 @@ float Lighting_Output_Low_End_Trim(uint32_t object_instance)
     float value = 100.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Lighting_Command.Low_Trim_Value;
     }
@@ -2640,7 +2696,8 @@ bool Lighting_Output_Low_End_Trim_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isgreaterequal(value, 1.0) && islessequal(value, 100.0)) {
             pObject->Lighting_Command.Low_Trim_Value = value;
@@ -2690,7 +2747,8 @@ uint32_t Lighting_Output_Trim_Fade_Time(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Trim_Fade_Time;
     }
@@ -2711,7 +2769,8 @@ bool Lighting_Output_Trim_Fade_Time_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 86400000UL) {
             pObject->Trim_Fade_Time = value;
@@ -2764,7 +2823,8 @@ bool Lighting_Output_Overridden_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Lighting_Command.Overridden_Momentary = false;
         pObject->Lighting_Command.Overridden = true;
@@ -2789,7 +2849,8 @@ bool Lighting_Output_Overridden_Clear(uint32_t object_instance)
     float value;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Lighting_Command.Overridden = false;
         pObject->Lighting_Command.Overridden_Momentary = false;
@@ -2815,7 +2876,8 @@ bool Lighting_Output_Overridden_Momentary(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* set the override */
         pObject->Lighting_Command.Overridden_Momentary = true;
@@ -2845,7 +2907,8 @@ bool Lighting_Output_Overridden_Status(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = pObject->Lighting_Command.Overridden ||
             pObject->Lighting_Command.Overridden_Momentary;
@@ -2865,7 +2928,8 @@ BACNET_LIGHTING_TRANSITION Lighting_Output_Transition(uint32_t object_instance)
     BACNET_LIGHTING_TRANSITION value = BACNET_LIGHTING_TRANSITION_NONE;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Transition;
     }
@@ -2886,7 +2950,8 @@ bool Lighting_Output_Transition_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= BACNET_LIGHTING_TRANSITION_PROPRIETARY_MAX) {
             pObject->Transition = value;
@@ -2918,7 +2983,8 @@ static bool Lighting_Output_Transition_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (value < BACNET_LIGHTING_TRANSITION_PROPRIETARY_MAX) {
@@ -2949,7 +3015,8 @@ bool Lighting_Output_Color_Override(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Color_Override;
     }
@@ -2971,7 +3038,8 @@ bool Lighting_Output_Color_Override_Set(uint32_t object_instance, bool value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Color_Override = value;
         status = true;
@@ -3002,7 +3070,8 @@ bool Lighting_Output_Color_Reference(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value) {
             value->type = pObject->Color_Reference.type;
@@ -3028,7 +3097,8 @@ bool Lighting_Output_Color_Reference_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Color_Reference.type = value->type;
         pObject->Color_Reference.instance = value->instance;
@@ -3066,7 +3136,8 @@ bool Lighting_Output_Override_Color_Reference(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value) {
             value->type = pObject->Override_Color_Reference.type;
@@ -3092,7 +3163,8 @@ bool Lighting_Output_Override_Color_Reference_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Override_Color_Reference.type = value->type;
         pObject->Override_Color_Reference.instance = value->instance;
@@ -3112,7 +3184,9 @@ float Lighting_Output_Feedback_Value(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Feedback_Value;
     }
@@ -3132,7 +3206,9 @@ bool Lighting_Output_Feedback_Value_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Feedback_Value = value;
         status = true;
@@ -3151,7 +3227,9 @@ float Lighting_Output_Power(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Power;
     }
@@ -3171,7 +3249,9 @@ bool Lighting_Output_Power_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Power = value;
         status = true;
@@ -3191,7 +3271,9 @@ float Lighting_Output_Instantaneous_Power(uint32_t object_instance)
     float value = 0.0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Instantaneous_Power;
     }
@@ -3212,7 +3294,9 @@ bool Lighting_Output_Instantaneous_Power_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Instantaneous_Power = value;
         status = true;
@@ -3681,7 +3765,8 @@ void Lighting_Output_Timer(uint32_t object_instance, uint16_t milliseconds)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         lighting_command_timer(&pObject->Lighting_Command, milliseconds);
     }
@@ -3692,7 +3777,8 @@ static void Lighting_Output_Tracking_Value_Callback(
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (Lighting_Command_Tracking_Value_Callback) {
             Lighting_Command_Tracking_Value_Callback(
@@ -3720,7 +3806,8 @@ void *Lighting_Output_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -3737,7 +3824,8 @@ void Lighting_Output_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -3754,8 +3842,10 @@ uint32_t Lighting_Output_Create(uint32_t object_instance)
     int index = 0;
     unsigned p = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -3765,9 +3855,10 @@ uint32_t Lighting_Output_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (!pObject) {
@@ -3807,7 +3898,8 @@ uint32_t Lighting_Output_Create(uint32_t object_instance)
         pObject->Override_Color_Reference.type = OBJECT_COLOR;
         pObject->Override_Color_Reference.instance = BACNET_MAX_INSTANCE;
         /* add to list */
-        index = Keylist_Data_Add(Object_List, object_instance, pObject);
+        index =
+            Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
         if (index < 0) {
             free(pObject);
             return BACNET_MAX_INSTANCE;
@@ -3827,7 +3919,9 @@ bool Lighting_Output_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -3843,15 +3937,17 @@ void Lighting_Output_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -3860,7 +3956,9 @@ void Lighting_Output_Cleanup(void)
  */
 void Lighting_Output_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

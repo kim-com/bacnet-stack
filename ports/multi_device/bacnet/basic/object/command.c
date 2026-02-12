@@ -28,10 +28,11 @@
 #include "bacnet/proplist.h"
 #include "bacnet/timestamp.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 /* me!*/
 #include "bacnet/basic/object/command.h"
 
-static COMMAND_DESCR Command_Descr[MAX_COMMANDS];
+static COMMAND_DESCR Command_Descr[MAX_NUM_DEVICES][MAX_COMMANDS];
 
 /* These arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Command_Properties_Required[] = {
@@ -108,10 +109,13 @@ void Command_Writable_Property_List(
 void Command_Init(void)
 {
     unsigned i;
-    for (i = 0; i < MAX_COMMANDS; i++) {
-        Command_Descr[i].Present_Value = 0;
-        Command_Descr[i].In_Process = false;
-        Command_Descr[i].All_Writes_Successful = true; /* Optimistic default */
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        for (i = 0; i < MAX_COMMANDS; i++) {
+            Command_Descr[device_idx][i].Present_Value = 0;
+            Command_Descr[device_idx][i].In_Process = false;
+            Command_Descr[device_idx][i].All_Writes_Successful =
+                true; /* Optimistic default */
+        }
     }
 }
 
@@ -186,12 +190,13 @@ unsigned Command_Instance_To_Index(uint32_t object_instance)
  */
 uint32_t Command_Present_Value(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint32_t value = 0;
     unsigned int index;
 
     index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        value = Command_Descr[index].Present_Value;
+        value = Command_Descr[device_idx][index].Present_Value;
     }
 
     return value;
@@ -207,12 +212,13 @@ uint32_t Command_Present_Value(uint32_t object_instance)
  */
 bool Command_Present_Value_Set(uint32_t object_instance, uint32_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned int index;
 
     index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        Command_Descr[index].Present_Value = value;
+        Command_Descr[device_idx][index].Present_Value = value;
         status = true;
     }
 
@@ -232,12 +238,13 @@ bool Command_Present_Value_Set(uint32_t object_instance, uint32_t value)
  */
 bool Command_In_Process(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool value = false;
     unsigned int index;
 
     index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        value = Command_Descr[index].In_Process;
+        value = Command_Descr[device_idx][index].In_Process;
     }
 
     return value;
@@ -253,12 +260,13 @@ bool Command_In_Process(uint32_t object_instance)
  */
 bool Command_In_Process_Set(uint32_t object_instance, bool value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned int index;
 
     index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        Command_Descr[index].In_Process = value;
+        Command_Descr[device_idx][index].In_Process = value;
         status = true;
     }
 
@@ -276,12 +284,13 @@ bool Command_In_Process_Set(uint32_t object_instance, bool value)
  */
 bool Command_All_Writes_Successful(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool value = false;
     unsigned int index;
 
     index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        value = Command_Descr[index].All_Writes_Successful;
+        value = Command_Descr[device_idx][index].All_Writes_Successful;
     }
 
     return value;
@@ -297,12 +306,13 @@ bool Command_All_Writes_Successful(uint32_t object_instance)
  */
 bool Command_All_Writes_Successful_Set(uint32_t object_instance, bool value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned int index;
 
     index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        Command_Descr[index].All_Writes_Successful = value;
+        Command_Descr[device_idx][index].All_Writes_Successful = value;
         status = true;
     }
 
@@ -342,9 +352,10 @@ bool Command_Object_Name(
  */
 static COMMAND_DESCR *Object_Data(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned int index = Command_Instance_To_Index(object_instance);
     if (index < MAX_COMMANDS) {
-        return &Command_Descr[index];
+        return &Command_Descr[device_idx][index];
     }
 
     return NULL;

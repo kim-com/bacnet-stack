@@ -88,6 +88,7 @@
 #include "bacnet/wp.h"
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "auditlog.h"
 
@@ -106,7 +107,7 @@ struct object_data {
     void *Context;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 
 static const int32_t Properties_Required[] = {
     /* required properties that are supported for this object */
@@ -205,7 +206,8 @@ void Audit_Log_Writable_Property_List(
  */
 static struct object_data *Object_Data(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -231,7 +233,8 @@ bool Audit_Log_Valid_Instance(uint32_t object_instance)
  */
 unsigned Audit_Log_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -244,7 +247,8 @@ uint32_t Audit_Log_Index_To_Instance(unsigned index)
 {
     uint32_t instance = UINT32_MAX;
 
-    (void)Keylist_Index_Key(Object_List, index, &instance);
+    const int device_idx = Routed_Device_Object_Index();
+    (void)Keylist_Index_Key(Object_List[device_idx], index, &instance);
 
     return instance;
 }
@@ -257,7 +261,8 @@ uint32_t Audit_Log_Index_To_Instance(unsigned index)
  */
 unsigned Audit_Log_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -1410,7 +1415,8 @@ void *Audit_Log_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1427,7 +1433,8 @@ void Audit_Log_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1442,9 +1449,10 @@ uint32_t Audit_Log_Create(uint32_t object_instance)
 {
     struct object_data *pObject = NULL;
     int index = 0;
-
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1454,9 +1462,9 @@ uint32_t Audit_Log_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (!pObject) {
@@ -1469,7 +1477,7 @@ uint32_t Audit_Log_Create(uint32_t object_instance)
         pObject->Enable = false;
         pObject->Out_Of_Service = false;
         /* add to list */
-        index = Keylist_Data_Add(Object_List, object_instance, pObject);
+        index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
         if (index < 0) {
             free(pObject);
             return BACNET_MAX_INSTANCE;
@@ -1502,8 +1510,9 @@ bool Audit_Log_Delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject = NULL;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         Audit_Log_Records_Cleanup(pObject->Records);
         free(pObject);
@@ -1520,16 +1529,18 @@ void Audit_Log_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                Audit_Log_Records_Cleanup(pObject->Records);
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    Audit_Log_Records_Cleanup(pObject->Records);
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1538,7 +1549,9 @@ void Audit_Log_Cleanup(void)
  */
 void Audit_Log_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

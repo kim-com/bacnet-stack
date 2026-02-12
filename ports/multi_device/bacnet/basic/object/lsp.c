@@ -20,6 +20,7 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
 #include "bacnet/proplist.h"
+#include "bacnet/basic/object/device.h"
 
 struct object_data {
     bool Out_Of_Service : 1;
@@ -33,7 +34,7 @@ struct object_data {
     void *Context;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_LIFE_SAFETY_POINT;
 
@@ -113,8 +114,9 @@ void Life_Safety_Point_Writable_Property_List(
 bool Life_Safety_Point_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -128,7 +130,8 @@ bool Life_Safety_Point_Valid_Instance(uint32_t object_instance)
  */
 unsigned Life_Safety_Point_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -144,8 +147,9 @@ unsigned Life_Safety_Point_Count(void)
 uint32_t Life_Safety_Point_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
+    const int device_idx = Routed_Device_Object_Index();
 
-    Keylist_Index_Key(Object_List, index, &key);
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -158,7 +162,8 @@ uint32_t Life_Safety_Point_Index_To_Instance(unsigned index)
  */
 unsigned Life_Safety_Point_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -171,8 +176,9 @@ Life_Safety_Point_Present_Value(uint32_t object_instance)
 {
     BACNET_LIFE_SAFETY_STATE value = LIFE_SAFETY_STATE_QUIET;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Present_Value;
     }
@@ -191,8 +197,9 @@ bool Life_Safety_Point_Present_Value_Set(
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Present_Value = value;
         status = true;
@@ -217,8 +224,9 @@ bool Life_Safety_Point_Object_Name(
     bool status = false;
     struct object_data *pObject;
     char name_text[32];
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -244,8 +252,9 @@ bool Life_Safety_Point_Name_Set(uint32_t object_instance, const char *new_name)
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -263,8 +272,9 @@ const char *Life_Safety_Point_Name_ASCII(uint32_t object_instance)
 {
     const char *name = NULL;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -281,8 +291,9 @@ BACNET_SILENCED_STATE Life_Safety_Point_Silenced(uint32_t object_instance)
 {
     BACNET_SILENCED_STATE value = SILENCED_STATE_UNSILENCED;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Silenced;
     }
@@ -301,8 +312,9 @@ bool Life_Safety_Point_Silenced_Set(
 {
     struct object_data *pObject;
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= SILENCED_STATE_PROPRIETARY_MAX) {
             pObject->Silenced = value;
@@ -322,8 +334,9 @@ BACNET_LIFE_SAFETY_MODE Life_Safety_Point_Mode(uint32_t object_instance)
 {
     BACNET_LIFE_SAFETY_MODE value = LIFE_SAFETY_MODE_OFF;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Mode;
     }
@@ -342,8 +355,9 @@ bool Life_Safety_Point_Mode_Set(
 {
     struct object_data *pObject;
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= LIFE_SAFETY_MODE_PROPRIETARY_MAX) {
             pObject->Mode = value;
@@ -364,8 +378,9 @@ Life_Safety_Point_Operation_Expected(uint32_t object_instance)
 {
     BACNET_LIFE_SAFETY_OPERATION value = LIFE_SAFETY_OP_NONE;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Operation_Expected;
     }
@@ -384,8 +399,9 @@ bool Life_Safety_Point_Operation_Expected_Set(
 {
     struct object_data *pObject;
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= LIFE_SAFETY_OP_PROPRIETARY_MAX) {
             pObject->Operation_Expected = value;
@@ -406,8 +422,9 @@ bool Life_Safety_Point_Out_Of_Service(uint32_t object_instance)
 {
     bool value = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Out_Of_Service;
     }
@@ -425,8 +442,9 @@ bool Life_Safety_Point_Out_Of_Service(uint32_t object_instance)
 void Life_Safety_Point_Out_Of_Service_Set(uint32_t object_instance, bool value)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Out_Of_Service = value;
     }
@@ -441,8 +459,9 @@ BACNET_RELIABILITY Life_Safety_Point_Reliability(uint32_t object_instance)
 {
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         reliability = (BACNET_RELIABILITY)pObject->Reliability;
     }
@@ -461,8 +480,9 @@ bool Life_Safety_Point_Reliability_Set(
 {
     struct object_data *pObject;
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             pObject->Reliability = value;
@@ -702,8 +722,9 @@ bool Life_Safety_Point_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 void *Life_Safety_Point_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -719,8 +740,9 @@ void *Life_Safety_Point_Context_Get(uint32_t object_instance)
 void Life_Safety_Point_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -735,9 +757,10 @@ uint32_t Life_Safety_Point_Create(uint32_t object_instance)
 {
     struct object_data *pObject = NULL;
     int index = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -747,9 +770,9 @@ uint32_t Life_Safety_Point_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -761,7 +784,7 @@ uint32_t Life_Safety_Point_Create(uint32_t object_instance)
             pObject->Operation_Expected = LIFE_SAFETY_OP_NONE;
             pObject->Out_Of_Service = false;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -783,8 +806,9 @@ bool Life_Safety_Point_Delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject = NULL;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -799,16 +823,19 @@ bool Life_Safety_Point_Delete(uint32_t object_instance)
 void Life_Safety_Point_Cleanup(void)
 {
     struct object_data *pObject;
+    int device_idx;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -817,7 +844,11 @@ void Life_Safety_Point_Cleanup(void)
  */
 void Life_Safety_Point_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    int device_idx;
+
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

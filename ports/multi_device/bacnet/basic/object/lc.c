@@ -23,6 +23,7 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/debug.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 
 /* from Table 12-33. Requested_Shed_Level Default Values and Power Targets */
 #define DEFAULT_VALUE_PERCENT 100
@@ -97,7 +98,7 @@ struct object_data {
     const char *Description;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Load_Control_Properties_Required[] = {
@@ -189,7 +190,8 @@ void Load_Control_Writable_Property_List(
  */
 static struct object_data *Object_Instance_Data(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -215,7 +217,8 @@ bool Load_Control_Valid_Instance(uint32_t object_instance)
  */
 unsigned Load_Control_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /* we simply have 0-n object instances.  Yours might be */
@@ -225,7 +228,8 @@ uint32_t Load_Control_Index_To_Instance(unsigned index)
 {
     uint32_t instance = UINT32_MAX;
 
-    (void)Keylist_Index_Key(Object_List, index, &instance);
+    const int device_idx = Routed_Device_Object_Index();
+    (void)Keylist_Index_Key(Object_List[device_idx], index, &instance);
 
     return instance;
 }
@@ -238,7 +242,8 @@ uint32_t Load_Control_Index_To_Instance(unsigned index)
  */
 unsigned Load_Control_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -521,8 +526,9 @@ void Load_Control_State_Machine(
     unsigned percent;
     unsigned level;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Index(Object_List, object_index);
+    pObject = Keylist_Data_Index(Object_List[device_idx], object_index);
     if (!pObject) {
         return;
     }
@@ -753,8 +759,8 @@ uint32_t Load_Control_Update_Interval(uint32_t object_instance)
 {
     uint32_t value = 0;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Update_Interval;
     }
@@ -774,7 +780,8 @@ bool Load_Control_Update_Interval_Set(uint32_t object_instance, uint32_t value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Update_Interval = value;
         status = true;
@@ -793,6 +800,7 @@ void Load_Control_Timer(uint32_t object_instance, uint16_t milliseconds)
     BACNET_DATE_TIME bdatetime = { 0 };
     struct object_data *pObject;
     int index = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
     pObject = Object_Instance_Data(object_instance);
     if (pObject) {
@@ -800,7 +808,7 @@ void Load_Control_Timer(uint32_t object_instance, uint16_t milliseconds)
         if (pObject->Task_Milliseconds >= pObject->Update_Interval) {
             pObject->Task_Milliseconds = 0;
             datetime_local(&bdatetime.date, &bdatetime.time, NULL, NULL);
-            index = Keylist_Index(Object_List, object_instance);
+            index = Keylist_Index(Object_List[device_idx], object_instance);
             Load_Control_State_Machine(index, &bdatetime);
             if (pObject->Present_Value != pObject->Previous_Value) {
                 debug_printf(
@@ -822,7 +830,8 @@ void Load_Control_State_Machine_Handler(void)
     unsigned count, index;
     uint32_t object_instance;
 
-    count = Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    count = Keylist_Count(Object_List[device_idx]);
     while (count) {
         count--;
         index = count;
@@ -1697,7 +1706,8 @@ bool Load_Control_Shed_Level_Array_Set(
     struct object_data *pObject;
     KEY key = 0;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return false;
     }
@@ -1738,7 +1748,8 @@ bool Load_Control_Shed_Level_Array(
     struct shed_level_data *entry;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return false;
     }
@@ -1767,7 +1778,8 @@ bool Load_Control_Requested_Shed_Level(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_shed_level_copy(value, &pObject->Requested_Shed_Level);
     }
@@ -1788,7 +1800,8 @@ bool Load_Control_Requested_Shed_Level_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_shed_level_copy(&pObject->Requested_Shed_Level, value);
         pObject->Load_Control_Request_Written = true;
@@ -1810,7 +1823,8 @@ bool Load_Control_Expected_Shed_Level(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_shed_level_copy(value, &pObject->Expected_Shed_Level);
     }
@@ -1830,8 +1844,9 @@ bool Load_Control_Expected_Shed_Level_Set(
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_shed_level_copy(&pObject->Expected_Shed_Level, value);
     }
@@ -1852,7 +1867,8 @@ bool Load_Control_Actual_Shed_Level(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_shed_level_copy(value, &pObject->Expected_Shed_Level);
     }
@@ -1873,7 +1889,8 @@ bool Load_Control_Actual_Shed_Level_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_shed_level_copy(&pObject->Expected_Shed_Level, value);
     }
@@ -1892,7 +1909,8 @@ bool Load_Control_Start_Time(uint32_t object_instance, BACNET_DATE_TIME *value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         datetime_copy_date(&value->date, &pObject->Start_Time.date);
         datetime_copy_time(&value->time, &pObject->Start_Time.time);
@@ -1914,7 +1932,8 @@ bool Load_Control_Start_Time_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         datetime_copy_date(&pObject->Start_Time.date, &value->date);
         datetime_copy_time(&pObject->Start_Time.time, &value->time);
@@ -1934,7 +1953,8 @@ uint32_t Load_Control_Shed_Duration(uint32_t object_instance)
     struct object_data *pObject;
     uint32_t value = 0;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Shed_Duration;
     }
@@ -1953,7 +1973,8 @@ bool Load_Control_Shed_Duration_Set(uint32_t object_instance, uint32_t value)
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Shed_Duration = value;
         status = true;
@@ -1972,7 +1993,8 @@ uint32_t Load_Control_Duty_Window(uint32_t object_instance)
     struct object_data *pObject;
     uint32_t value = 0;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Duty_Window;
     }
@@ -1991,7 +2013,8 @@ bool Load_Control_Duty_Window_Set(uint32_t object_instance, uint32_t value)
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Duty_Window = value;
         status = true;
@@ -2011,7 +2034,8 @@ float Load_Control_Full_Duty_Baseline(uint32_t object_instance)
     struct object_data *pObject;
     float value = 0.0f;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Full_Duty_Baseline;
     }
@@ -2031,7 +2055,8 @@ bool Load_Control_Full_Duty_Baseline_Set(uint32_t object_instance, float value)
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Full_Duty_Baseline = value;
         status = true;
@@ -2050,7 +2075,8 @@ bool Load_Control_Enable(uint32_t object_instance)
     struct object_data *pObject;
     bool value = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Load_Control_Enable;
     }
@@ -2069,7 +2095,8 @@ bool Load_Control_Enable_Set(uint32_t object_instance, bool value)
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Load_Control_Enable = value;
         status = true;
@@ -2087,7 +2114,8 @@ void *Load_Control_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -2104,7 +2132,8 @@ void Load_Control_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -2126,8 +2155,10 @@ uint32_t Load_Control_Create(uint32_t object_instance)
     struct shed_level_data *entry;
     unsigned i = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -2137,9 +2168,10 @@ uint32_t Load_Control_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -2185,7 +2217,8 @@ uint32_t Load_Control_Create(uint32_t object_instance)
             pObject->Update_Interval = LOAD_CONTROL_TASK_INTERVAL_MS;
             pObject->Task_Milliseconds = 0;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(
+                Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -2208,7 +2241,9 @@ bool Load_Control_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -2224,15 +2259,17 @@ void Load_Control_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -2241,7 +2278,9 @@ void Load_Control_Cleanup(void)
  */
 void Load_Control_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

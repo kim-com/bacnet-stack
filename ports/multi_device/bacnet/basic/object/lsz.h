@@ -28,7 +28,6 @@ void Life_Safety_Zone_Property_Lists(
 BACNET_STACK_EXPORT
 void Life_Safety_Zone_Writable_Property_List(
     uint32_t object_instance, const int32_t **properties);
-
 BACNET_STACK_EXPORT
 bool Life_Safety_Zone_Valid_Instance(uint32_t object_instance);
 BACNET_STACK_EXPORT

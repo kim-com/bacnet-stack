@@ -23,7 +23,8 @@
 #define MAX_OCTETSTRING_VALUES 4
 #endif
 
-static OCTETSTRING_VALUE_DESCR OSV_Descr[MAX_OCTETSTRING_VALUES];
+static OCTETSTRING_VALUE_DESCR OSV_Descr[MAX_NUM_DEVICES]
+                                        [MAX_OCTETSTRING_VALUES];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -83,10 +84,13 @@ void OctetString_Value_Writable_Property_List(
 void OctetString_Value_Init(void)
 {
     unsigned i;
-
-    for (i = 0; i < MAX_OCTETSTRING_VALUES; i++) {
-        memset(&OSV_Descr[i], 0x00, sizeof(OCTETSTRING_VALUE_DESCR));
-        octetstring_init(&OSV_Descr[i].Present_Value, NULL, 0);
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        for (i = 0; i < MAX_OCTETSTRING_VALUES; i++) {
+            memset(
+                &OSV_Descr[device_idx][i], 0x00,
+                sizeof(OCTETSTRING_VALUE_DESCR));
+            octetstring_init(&OSV_Descr[device_idx][i].Present_Value, NULL, 0);
+        }
     }
 }
 
@@ -146,13 +150,14 @@ bool OctetString_Value_Present_Value_Set(
     const BACNET_OCTET_STRING *value,
     uint8_t priority)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool status = false;
 
     (void)priority;
     index = OctetString_Value_Instance_To_Index(object_instance);
     if (index < MAX_OCTETSTRING_VALUES) {
-        octetstring_copy(&OSV_Descr[index].Present_Value, value);
+        octetstring_copy(&OSV_Descr[device_idx][index].Present_Value, value);
         status = true;
     }
     return status;
@@ -160,12 +165,13 @@ bool OctetString_Value_Present_Value_Set(
 
 BACNET_OCTET_STRING *OctetString_Value_Present_Value(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_OCTET_STRING *value = NULL;
     unsigned index = 0;
 
     index = OctetString_Value_Instance_To_Index(object_instance);
     if (index < MAX_OCTETSTRING_VALUES) {
-        value = &OSV_Descr[index].Present_Value;
+        value = &OSV_Descr[device_idx][index].Present_Value;
     }
 
     return value;
@@ -191,6 +197,7 @@ bool OctetString_Value_Object_Name(
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int OctetString_Value_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = 0; /* return value */
     BACNET_BIT_STRING bit_string;
     BACNET_CHARACTER_STRING char_string;
@@ -209,7 +216,7 @@ int OctetString_Value_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 
     object_index = OctetString_Value_Instance_To_Index(rpdata->object_instance);
     if (object_index < MAX_OCTETSTRING_VALUES) {
-        CurrentAV = &OSV_Descr[object_index];
+        CurrentAV = &OSV_Descr[device_idx][object_index];
     } else {
         return BACNET_STATUS_ERROR;
     }
@@ -273,6 +280,7 @@ int OctetString_Value_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 /* returns true if successful */
 bool OctetString_Value_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
     unsigned int object_index = 0;
     int len = 0;
@@ -292,7 +300,7 @@ bool OctetString_Value_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
     object_index =
         OctetString_Value_Instance_To_Index(wp_data->object_instance);
     if (object_index < MAX_OCTETSTRING_VALUES) {
-        CurrentAV = &OSV_Descr[object_index];
+        CurrentAV = &OSV_Descr[device_idx][object_index];
     } else {
         return false;
     }

@@ -16,10 +16,11 @@
 #include "bacnet/wp.h"
 #include "access_door.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 
 static bool Access_Door_Initialized = false;
 
-static ACCESS_DOOR_DESCR ad_descr[MAX_ACCESS_DOORS];
+static ACCESS_DOOR_DESCR ad_descr[MAX_NUM_DEVICES][MAX_ACCESS_DOORS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -97,25 +98,29 @@ void Access_Door_Init(void)
 
     if (!Access_Door_Initialized) {
         Access_Door_Initialized = true;
-
-        /* initialize all the access door priority arrays to NULL */
-        for (i = 0; i < MAX_ACCESS_DOORS; i++) {
-            ad_descr[i].relinquish_default = DOOR_VALUE_LOCK;
-            ad_descr[i].event_state = EVENT_STATE_NORMAL;
-            ad_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            ad_descr[i].out_of_service = false;
-            ad_descr[i].door_status = DOOR_STATUS_CLOSED;
-            ad_descr[i].lock_status = LOCK_STATUS_LOCKED;
-            ad_descr[i].secured_status = DOOR_SECURED_STATUS_SECURED;
-            ad_descr[i].door_pulse_time = 30; /* 3s */
-            ad_descr[i].door_extended_pulse_time = 50; /* 5s */
-            ad_descr[i].door_unlock_delay_time = 0; /* 0s */
-            ad_descr[i].door_open_too_long_time = 300; /* 30s */
-            ad_descr[i].door_alarm_state = DOOR_ALARM_STATE_NORMAL;
-            for (j = 0; j < BACNET_MAX_PRIORITY; j++) {
-                ad_descr[i].value_active[j] = false;
-                /* just to fill in */
-                ad_descr[i].priority_array[j] = DOOR_VALUE_LOCK;
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            /* initialize all the access door priority arrays to NULL */
+            for (i = 0; i < MAX_ACCESS_DOORS; i++) {
+                ad_descr[device_idx][i].relinquish_default = DOOR_VALUE_LOCK;
+                ad_descr[device_idx][i].event_state = EVENT_STATE_NORMAL;
+                ad_descr[device_idx][i].reliability =
+                    RELIABILITY_NO_FAULT_DETECTED;
+                ad_descr[device_idx][i].out_of_service = false;
+                ad_descr[device_idx][i].door_status = DOOR_STATUS_CLOSED;
+                ad_descr[device_idx][i].lock_status = LOCK_STATUS_LOCKED;
+                ad_descr[device_idx][i].secured_status =
+                    DOOR_SECURED_STATUS_SECURED;
+                ad_descr[device_idx][i].door_pulse_time = 30; /* 3s */
+                ad_descr[device_idx][i].door_extended_pulse_time = 50; /* 5s */
+                ad_descr[device_idx][i].door_unlock_delay_time = 0; /* 0s */
+                ad_descr[device_idx][i].door_open_too_long_time = 300; /* 30s */
+                ad_descr[device_idx][i].door_alarm_state =
+                    DOOR_ALARM_STATE_NORMAL;
+                for (j = 0; j < BACNET_MAX_PRIORITY; j++) {
+                    ad_descr[device_idx][i].value_active[j] = false;
+                    /* just to fill in */
+                    ad_descr[device_idx][i].priority_array[j] = DOOR_VALUE_LOCK;
+                }
             }
         }
     }
@@ -166,16 +171,17 @@ unsigned Access_Door_Instance_To_Index(uint32_t object_instance)
 
 BACNET_DOOR_VALUE Access_Door_Present_Value(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     unsigned i = 0;
     BACNET_DOOR_VALUE value = DOOR_VALUE_LOCK;
 
     index = Access_Door_Instance_To_Index(object_instance);
     if (index < MAX_ACCESS_DOORS) {
-        value = ad_descr[i].relinquish_default;
+        value = ad_descr[device_idx][i].relinquish_default;
         for (i = 0; i < BACNET_MAX_PRIORITY; i++) {
-            if (ad_descr[index].value_active[i]) {
-                value = ad_descr[index].priority_array[i];
+            if (ad_descr[device_idx][index].value_active[i]) {
+                value = ad_descr[device_idx][index].priority_array[i];
                 break;
             }
         }
@@ -185,6 +191,7 @@ BACNET_DOOR_VALUE Access_Door_Present_Value(uint32_t object_instance)
 
 unsigned Access_Door_Present_Value_Priority(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* instance to index conversion */
     unsigned i = 0; /* loop counter */
     unsigned priority = 0; /* return value */
@@ -192,7 +199,7 @@ unsigned Access_Door_Present_Value_Priority(uint32_t object_instance)
     index = Access_Door_Instance_To_Index(object_instance);
     if (index < MAX_ACCESS_DOORS) {
         for (i = 0; i < BACNET_MAX_PRIORITY; i++) {
-            if (ad_descr[index].value_active[i]) {
+            if (ad_descr[device_idx][index].value_active[i]) {
                 priority = i + 1;
                 break;
             }
@@ -205,6 +212,7 @@ unsigned Access_Door_Present_Value_Priority(uint32_t object_instance)
 bool Access_Door_Present_Value_Set(
     uint32_t object_instance, BACNET_DOOR_VALUE value, unsigned priority)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool status = false;
 
@@ -213,8 +221,8 @@ bool Access_Door_Present_Value_Set(
         if (priority && (priority <= BACNET_MAX_PRIORITY) &&
             (priority != 6 /* reserved */) &&
             (value <= DOOR_VALUE_EXTENDED_PULSE_UNLOCK)) {
-            ad_descr[index].value_active[priority - 1] = true;
-            ad_descr[index].priority_array[priority - 1] = value;
+            ad_descr[device_idx][index].value_active[priority - 1] = true;
+            ad_descr[device_idx][index].priority_array[priority - 1] = value;
             /* Note: you could set the physical output here to the next
                highest priority, or to the relinquish default if no
                priorities are set.
@@ -237,13 +245,14 @@ bool Access_Door_Present_Value_Set(
 bool Access_Door_Priority_Array_Relinquished(
     uint32_t object_instance, unsigned priority)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Access_Door_Instance_To_Index(object_instance);
     if (index < MAX_ACCESS_DOORS) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
-            if (!ad_descr[index].value_active[priority - 1]) {
+            if (!ad_descr[device_idx][index].value_active[priority - 1]) {
                 status = true;
             }
         }
@@ -261,13 +270,14 @@ bool Access_Door_Priority_Array_Relinquished(
 BACNET_DOOR_VALUE
 Access_Door_Priority_Array_Value(uint32_t object_instance, unsigned priority)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_DOOR_VALUE value = DOOR_VALUE_LOCK;
     unsigned index = 0;
 
     index = Access_Door_Instance_To_Index(object_instance);
     if (index < MAX_ACCESS_DOORS) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
-            value = ad_descr[index].priority_array[priority - 1];
+            value = ad_descr[device_idx][index].priority_array[priority - 1];
         }
     }
 
@@ -277,6 +287,7 @@ Access_Door_Priority_Array_Value(uint32_t object_instance, unsigned priority)
 bool Access_Door_Present_Value_Relinquish(
     uint32_t object_instance, unsigned priority)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool status = false;
 
@@ -284,7 +295,7 @@ bool Access_Door_Present_Value_Relinquish(
     if (index < MAX_ACCESS_DOORS) {
         if (priority && (priority <= BACNET_MAX_PRIORITY) &&
             (priority != 6 /* reserved */)) {
-            ad_descr[index].value_active[priority - 1] = false;
+            ad_descr[device_idx][index].value_active[priority - 1] = false;
             /* Note: you could set the physical output here to the next
                highest priority, or to the relinquish default if no
                priorities are set.
@@ -300,11 +311,12 @@ bool Access_Door_Present_Value_Relinquish(
 
 BACNET_DOOR_VALUE Access_Door_Relinquish_Default(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_DOOR_VALUE status = DOOR_VALUE_LOCK;
     unsigned index = 0;
     index = Access_Door_Instance_To_Index(object_instance);
     if (index < MAX_ACCESS_DOORS) {
-        return ad_descr[index].relinquish_default;
+        return ad_descr[device_idx][index].relinquish_default;
     }
 
     return status;
@@ -323,16 +335,18 @@ BACNET_DOOR_VALUE Access_Door_Relinquish_Default(uint32_t object_instance)
 static int Access_Door_Priority_Array_Encode(
     uint32_t object_instance, BACNET_ARRAY_INDEX array_index, uint8_t *apdu)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = BACNET_STATUS_ERROR;
     unsigned object_index = 0;
 
     object_index = Access_Door_Instance_To_Index(object_instance);
     if (object_index < MAX_ACCESS_DOORS) {
-        if (ad_descr[object_index].value_active[array_index]) {
+        if (ad_descr[device_idx][object_index].value_active[array_index]) {
             apdu_len = encode_application_null(apdu);
         } else {
             apdu_len = encode_application_enumerated(
-                apdu, ad_descr[object_index].priority_array[array_index]);
+                apdu,
+                ad_descr[device_idx][object_index].priority_array[array_index]);
         }
     }
 
@@ -358,12 +372,13 @@ bool Access_Door_Object_Name(
 
 bool Access_Door_Out_Of_Service(uint32_t instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool oos_flag = false;
 
     index = Access_Door_Instance_To_Index(instance);
     if (index < MAX_ACCESS_DOORS) {
-        oos_flag = ad_descr[index].out_of_service;
+        oos_flag = ad_descr[device_idx][index].out_of_service;
     }
 
     return oos_flag;
@@ -371,17 +386,19 @@ bool Access_Door_Out_Of_Service(uint32_t instance)
 
 void Access_Door_Out_Of_Service_Set(uint32_t instance, bool oos_flag)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Access_Door_Instance_To_Index(instance);
     if (index < MAX_ACCESS_DOORS) {
-        ad_descr[index].out_of_service = oos_flag;
+        ad_descr[device_idx][index].out_of_service = oos_flag;
     }
 }
 
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int Access_Door_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = 0; /* return value */
     BACNET_BIT_STRING bit_string;
     BACNET_CHARACTER_STRING char_string;
@@ -426,11 +443,11 @@ int Access_Door_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_EVENT_STATE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ad_descr[object_index].event_state);
+                &apdu[0], ad_descr[device_idx][object_index].event_state);
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ad_descr[object_index].reliability);
+                &apdu[0], ad_descr[device_idx][object_index].reliability);
             break;
         case PROP_OUT_OF_SERVICE:
             state = Access_Door_Out_Of_Service(rpdata->object_instance);
@@ -456,35 +473,38 @@ int Access_Door_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_DOOR_STATUS:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ad_descr[object_index].door_status);
+                &apdu[0], ad_descr[device_idx][object_index].door_status);
             break;
         case PROP_LOCK_STATUS:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ad_descr[object_index].lock_status);
+                &apdu[0], ad_descr[device_idx][object_index].lock_status);
             break;
         case PROP_SECURED_STATUS:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ad_descr[object_index].secured_status);
+                &apdu[0], ad_descr[device_idx][object_index].secured_status);
             break;
         case PROP_DOOR_PULSE_TIME:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ad_descr[object_index].door_pulse_time);
+                &apdu[0], ad_descr[device_idx][object_index].door_pulse_time);
             break;
         case PROP_DOOR_EXTENDED_PULSE_TIME:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ad_descr[object_index].door_extended_pulse_time);
+                &apdu[0],
+                ad_descr[device_idx][object_index].door_extended_pulse_time);
             break;
         case PROP_DOOR_UNLOCK_DELAY_TIME:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ad_descr[object_index].door_unlock_delay_time);
+                &apdu[0],
+                ad_descr[device_idx][object_index].door_unlock_delay_time);
             break;
         case PROP_DOOR_OPEN_TOO_LONG_TIME:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ad_descr[object_index].door_open_too_long_time);
+                &apdu[0],
+                ad_descr[device_idx][object_index].door_open_too_long_time);
             break;
         case PROP_DOOR_ALARM_STATE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ad_descr[object_index].door_alarm_state);
+                &apdu[0], ad_descr[device_idx][object_index].door_alarm_state);
             break;
         default:
             rpdata->error_class = ERROR_CLASS_PROPERTY;
@@ -499,6 +519,7 @@ int Access_Door_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 /* returns true if successful */
 bool Access_Door_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
     int len = 0;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
@@ -563,7 +584,7 @@ bool Access_Door_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
                 status = write_property_type_valid(
                     wp_data, &value, BACNET_APPLICATION_TAG_ENUMERATED);
                 if (status) {
-                    ad_descr[object_index].door_status =
+                    ad_descr[device_idx][object_index].door_status =
                         (BACNET_DOOR_STATUS)value.type.Enumerated;
                 }
             } else {
@@ -576,7 +597,7 @@ bool Access_Door_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
                 status = write_property_type_valid(
                     wp_data, &value, BACNET_APPLICATION_TAG_ENUMERATED);
                 if (status) {
-                    ad_descr[object_index].lock_status =
+                    ad_descr[device_idx][object_index].lock_status =
                         (BACNET_LOCK_STATUS)value.type.Enumerated;
                 }
             } else {
@@ -589,7 +610,7 @@ bool Access_Door_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
                 status = write_property_type_valid(
                     wp_data, &value, BACNET_APPLICATION_TAG_ENUMERATED);
                 if (status) {
-                    ad_descr[object_index].door_alarm_state =
+                    ad_descr[device_idx][object_index].door_alarm_state =
                         (BACNET_DOOR_ALARM_STATE)value.type.Enumerated;
                 }
             } else {

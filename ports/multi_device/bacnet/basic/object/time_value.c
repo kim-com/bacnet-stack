@@ -30,6 +30,7 @@
 #include "bacnet/wp.h"
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "time_value.h"
 
@@ -44,7 +45,7 @@ struct object_data {
 };
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* callback for present value writes */
 static time_value_write_present_value_callback
     Time_Value_Write_Present_Value_Callback;
@@ -124,7 +125,8 @@ bool Time_Value_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -139,7 +141,8 @@ bool Time_Value_Valid_Instance(uint32_t object_instance)
  */
 unsigned Time_Value_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -154,7 +157,8 @@ uint32_t Time_Value_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -170,7 +174,8 @@ uint32_t Time_Value_Index_To_Instance(unsigned index)
  */
 unsigned Time_Value_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -185,7 +190,8 @@ bool Time_Value_Present_Value(uint32_t object_instance, BACNET_TIME *value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         datetime_copy_time(value, &pObject->Present_Value);
         status = true;
@@ -223,7 +229,8 @@ bool Time_Value_Present_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (!pObject->Out_Of_Service) {
             if (value) {
@@ -259,7 +266,8 @@ static bool Time_Value_Present_Value_Write(
     struct object_data *pObject;
     BACNET_TIME old_value = { 0 };
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (pObject->Write_Enabled) {
@@ -301,7 +309,8 @@ bool Time_Value_Out_Of_Service(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = pObject->Out_Of_Service;
     }
@@ -322,7 +331,8 @@ bool Time_Value_Out_Of_Service_Set(uint32_t object_instance, bool value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Out_Of_Service != value) {
             pObject->Change_Of_Value = true;
@@ -353,7 +363,8 @@ static bool Time_Value_Out_Of_Service_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Write_Enabled) {
             Time_Value_Out_Of_Service_Set(object_instance, value);
@@ -387,7 +398,8 @@ bool Time_Value_Object_Name(
     struct object_data *pObject;
     char name_text[16] = "Time-4194303";
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -415,7 +427,8 @@ bool Time_Value_Name_Set(uint32_t object_instance, const char *new_name)
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -434,7 +447,8 @@ const char *Time_Value_Name_ASCII(uint32_t object_instance)
     const char *name = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -454,7 +468,8 @@ const char *Time_Value_Description(uint32_t object_instance)
     const char *name = NULL;
     const struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Description) {
             name = pObject->Description;
@@ -479,7 +494,8 @@ bool Time_Value_Description_Set(uint32_t object_instance, const char *new_name)
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -493,7 +509,8 @@ bool Time_Value_Change_Of_Value(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = pObject->Change_Of_Value;
     }
@@ -505,7 +522,8 @@ void Time_Value_Change_Of_Value_Clear(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Change_Of_Value = false;
     }
@@ -753,7 +771,8 @@ bool Time_Value_Write_Enabled(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Write_Enabled;
     }
@@ -769,7 +788,8 @@ void Time_Value_Write_Enable(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Write_Enabled = true;
     }
@@ -783,7 +803,8 @@ void Time_Value_Write_Disable(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Write_Enabled = false;
     }
@@ -798,7 +819,8 @@ void *Time_Value_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -815,7 +837,8 @@ void Time_Value_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -831,8 +854,10 @@ uint32_t Time_Value_Create(uint32_t object_instance)
     struct object_data *pObject = NULL;
     int index = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -842,9 +867,10 @@ uint32_t Time_Value_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (!pObject) {
@@ -856,7 +882,7 @@ uint32_t Time_Value_Create(uint32_t object_instance)
         pObject->Change_Of_Value = false;
         pObject->Write_Enabled = false;
         /* add to list */
-        index = Keylist_Data_Add(Object_List, object_instance, pObject);
+        index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
         if (index < 0) {
             free(pObject);
             return BACNET_MAX_INSTANCE;
@@ -876,7 +902,9 @@ bool Time_Value_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -892,15 +920,17 @@ void Time_Value_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
         do {
-            pObject = Keylist_Data_Pop(Object_List);
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
             if (pObject) {
                 free(pObject);
             }
         } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -909,7 +939,10 @@ void Time_Value_Cleanup(void)
  */
 void Time_Value_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
     }
 }
+}
+

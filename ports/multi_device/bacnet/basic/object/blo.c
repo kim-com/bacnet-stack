@@ -21,6 +21,7 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
 #include "bacnet/proplist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/blo.h"
 
@@ -51,7 +52,7 @@ struct object_data {
     bool Polarity : 1;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* callback for present value writes */
 static binary_lighting_output_write_value_callback
     Binary_Lighting_Output_Write_Value_Callback;
@@ -148,7 +149,8 @@ bool Binary_Lighting_Output_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -163,7 +165,8 @@ bool Binary_Lighting_Output_Valid_Instance(uint32_t object_instance)
  */
 unsigned Binary_Lighting_Output_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -178,7 +181,8 @@ uint32_t Binary_Lighting_Output_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -194,7 +198,8 @@ uint32_t Binary_Lighting_Output_Index_To_Instance(unsigned index)
  */
 unsigned Binary_Lighting_Output_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -256,7 +261,8 @@ Binary_Lighting_Output_Present_Value(uint32_t object_instance)
     BACNET_BINARY_LIGHTING_PV value = BINARY_LIGHTING_PV_OFF;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = Priority_Array_Next_Value(pObject, 0);
     }
@@ -302,7 +308,8 @@ static int Binary_Lighting_Output_Priority_Array_Encode(
     BACNET_BINARY_LIGHTING_PV value = BINARY_LIGHTING_PV_OFF;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (priority < BACNET_MAX_PRIORITY) {
             if (Priority_Array_Active(pObject, priority)) {
@@ -408,7 +415,8 @@ unsigned Binary_Lighting_Output_Present_Value_Priority(uint32_t object_instance)
     unsigned priority = 0; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         priority = Present_Value_Priority(pObject);
         if (priority > BACNET_MAX_PRIORITY) {
@@ -437,7 +445,8 @@ bool Binary_Lighting_Output_Present_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = Present_Value_Set(pObject, value, priority);
     }
@@ -455,7 +464,8 @@ static void Present_Value_On_Off_Handler(uint32_t object_instance)
     uint8_t current_priority;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -487,7 +497,8 @@ static void Present_Value_Relinquish_Handler(uint32_t object_instance)
     BACNET_BINARY_LIGHTING_PV value;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -553,7 +564,8 @@ static void Present_Value_Warn_Handler(uint32_t object_instance)
     BACNET_BINARY_LIGHTING_PV lighting_value;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -618,7 +630,8 @@ void Binary_Lighting_Output_Timer(
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Egress_Timer > milliseconds) {
             pObject->Egress_Timer -= milliseconds;
@@ -677,7 +690,8 @@ static bool Binary_Lighting_Output_Present_Value_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (priority == 6) {
             /* Command priority 6 is reserved for use by Minimum On/Off
@@ -729,7 +743,8 @@ bool Binary_Lighting_Output_Priority_Array_Relinquished(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             if (!Priority_Array_Active(pObject, priority - 1)) {
@@ -754,7 +769,8 @@ BACNET_BINARY_LIGHTING_PV Binary_Lighting_Output_Priority_Array_Value(
     BACNET_BINARY_LIGHTING_PV value = BINARY_LIGHTING_PV_STOP;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             value = pObject->Priority_Array[priority - 1];
@@ -779,7 +795,8 @@ bool Binary_Lighting_Output_Present_Value_Relinquish(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = Present_Value_Relinquish(pObject, priority);
     }
@@ -807,7 +824,8 @@ static bool Binary_Lighting_Output_Present_Value_Relinquish_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (priority == 6) {
             /* Command priority 6 is reserved for use by Minimum On/Off
@@ -851,7 +869,8 @@ bool Binary_Lighting_Output_Object_Name(
     struct object_data *pObject;
     char name_text[48] = "BINARY-LIGHTING-OUTPUT-4194303";
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -881,7 +900,8 @@ bool Binary_Lighting_Output_Name_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -900,7 +920,8 @@ const char *Binary_Lighting_Output_Name_ASCII(uint32_t object_instance)
     const char *name = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -920,7 +941,8 @@ const char *Binary_Lighting_Output_Description(uint32_t object_instance)
     const char *name = NULL;
     const struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Description) {
             name = pObject->Description;
@@ -946,7 +968,8 @@ bool Binary_Lighting_Output_Description_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -972,7 +995,8 @@ bool Binary_Lighting_Output_Lighting_Command_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Target_Priority = priority;
         pObject->Target_Value = value;
@@ -993,7 +1017,8 @@ Binary_Lighting_Output_Lighting_Command_Target_Value(uint32_t object_instance)
     BACNET_BINARY_LIGHTING_PV value = BINARY_LIGHTING_PV_OFF;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Target_Value;
     }
@@ -1013,7 +1038,8 @@ unsigned Binary_Lighting_Output_Lighting_Command_Target_Priority(
     unsigned priority = BACNET_MAX_PRIORITY;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         priority = pObject->Target_Priority;
     }
@@ -1034,7 +1060,8 @@ Binary_Lighting_Output_Feedback_Value(uint32_t object_instance)
     BACNET_BINARY_LIGHTING_PV value = BINARY_LIGHTING_PV_OFF;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Feedback_Value;
     }
@@ -1057,7 +1084,8 @@ bool Binary_Lighting_Output_Feedback_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((value == BINARY_LIGHTING_PV_OFF) ||
             (value == BINARY_LIGHTING_PV_ON)) {
@@ -1085,7 +1113,8 @@ bool Binary_Lighting_Output_Blink_Warn_Enable(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Blink_Warn_Enable;
     }
@@ -1108,7 +1137,8 @@ bool Binary_Lighting_Output_Blink_Warn_Enable_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Blink_Warn_Enable = enable;
         status = true;
@@ -1130,7 +1160,8 @@ uint32_t Binary_Lighting_Output_Egress_Time(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Egress_Time;
     }
@@ -1153,7 +1184,8 @@ bool Binary_Lighting_Output_Egress_Time_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Egress_Time = seconds;
         status = true;
@@ -1175,7 +1207,8 @@ bool Binary_Lighting_Output_Egress_Active(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Egress_Timer > 0 ? true : false;
     }
@@ -1196,7 +1229,8 @@ bool Binary_Lighting_Output_Out_Of_Service(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Out_Of_Service;
     }
@@ -1217,7 +1251,8 @@ void Binary_Lighting_Output_Out_Of_Service_Set(
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Out_Of_Service = value;
     }
@@ -1237,7 +1272,8 @@ Binary_Lighting_Output_Relinquish_Default(uint32_t object_instance)
     BACNET_BINARY_LIGHTING_PV value = BINARY_LIGHTING_PV_OFF;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Relinquish_Default;
     }
@@ -1260,7 +1296,8 @@ bool Binary_Lighting_Output_Relinquish_Default_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((value == BINARY_LIGHTING_PV_OFF) ||
             (value == BINARY_LIGHTING_PV_ON)) {
@@ -1284,7 +1321,8 @@ BACNET_RELIABILITY Binary_Lighting_Output_Reliability(uint32_t object_instance)
     BACNET_RELIABILITY value = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Reliability;
     }
@@ -1306,7 +1344,8 @@ bool Binary_Lighting_Output_Reliability_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Reliability = value;
         status = true;
@@ -1552,7 +1591,8 @@ void *Binary_Lighting_Output_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1569,7 +1609,8 @@ void Binary_Lighting_Output_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1586,8 +1627,10 @@ uint32_t Binary_Lighting_Output_Create(uint32_t object_instance)
     int index = 0;
     unsigned p = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1597,9 +1640,10 @@ uint32_t Binary_Lighting_Output_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (!pObject) {
@@ -1621,7 +1665,7 @@ uint32_t Binary_Lighting_Output_Create(uint32_t object_instance)
         pObject->Relinquish_Default = BINARY_LIGHTING_PV_OFF;
         pObject->Power = 0.0;
         /* add to list */
-        index = Keylist_Data_Add(Object_List, object_instance, pObject);
+        index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
         if (index < 0) {
             free(pObject);
             return BACNET_MAX_INSTANCE;
@@ -1641,7 +1685,9 @@ bool Binary_Lighting_Output_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1657,15 +1703,17 @@ void Binary_Lighting_Output_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
         do {
-            pObject = Keylist_Data_Pop(Object_List);
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
             if (pObject) {
                 free(pObject);
             }
         } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1674,7 +1722,10 @@ void Binary_Lighting_Output_Cleanup(void)
  */
 void Binary_Lighting_Output_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
     }
 }
+}
+

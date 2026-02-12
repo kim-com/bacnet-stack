@@ -14,6 +14,7 @@
 #include "bacnet/bacdcode.h"
 #include "bacnet/proplist.h"
 #include "bacnet/basic/object/acc.h"
+#include "bacnet/basic/object/device.h"
 
 #ifndef MAX_ACCUMULATORS
 #define MAX_ACCUMULATORS 64
@@ -24,7 +25,7 @@ struct object_data {
     int32_t Scale;
 };
 
-static struct object_data Object_List[MAX_ACCUMULATORS];
+static struct object_data Object_List[MAX_NUM_DEVICES][MAX_ACCUMULATORS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -192,7 +193,8 @@ BACNET_UNSIGNED_INTEGER Accumulator_Present_Value(uint32_t object_instance)
     BACNET_UNSIGNED_INTEGER value = 0;
 
     if (object_instance < MAX_ACCUMULATORS) {
-        value = Object_List[object_instance].Present_Value;
+        const int device_idx = Routed_Device_Object_Index();
+        value = Object_List[device_idx][object_instance].Present_Value;
     }
 
     return value;
@@ -212,7 +214,8 @@ bool Accumulator_Present_Value_Set(
     bool status = false;
 
     if (object_instance < MAX_ACCUMULATORS) {
-        Object_List[object_instance].Present_Value = value;
+        const int device_idx = Routed_Device_Object_Index();
+        Object_List[device_idx][object_instance].Present_Value = value;
         status = true;
     }
 
@@ -253,7 +256,8 @@ int32_t Accumulator_Scale_Integer(uint32_t object_instance)
     int32_t scale = 0;
 
     if (object_instance < MAX_ACCUMULATORS) {
-        scale = Object_List[object_instance].Scale;
+        const int device_idx = Routed_Device_Object_Index();
+        scale = Object_List[device_idx][object_instance].Scale;
     }
 
     return scale;
@@ -276,7 +280,8 @@ bool Accumulator_Scale_Integer_Set(uint32_t object_instance, int32_t scale)
     bool status = false;
 
     if (object_instance < MAX_ACCUMULATORS) {
-        Object_List[object_instance].Scale = scale;
+        const int device_idx = Routed_Device_Object_Index();
+        Object_List[device_idx][object_instance].Scale = scale;
         status = true;
     }
 
@@ -450,10 +455,15 @@ void Accumulator_Init(void)
 {
     BACNET_UNSIGNED_INTEGER unsigned_value = 1;
     unsigned i = 0;
+    
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        unsigned_value = 1;
+        Set_Routed_Device_Object_Index(device_idx);
 
-    for (i = 0; i < MAX_ACCUMULATORS; i++) {
-        Accumulator_Scale_Integer_Set(i, i + 1);
-        Accumulator_Present_Value_Set(i, unsigned_value);
-        unsigned_value |= (unsigned_value << 1);
+        for (i = 0; i < MAX_ACCUMULATORS; i++) {
+            Accumulator_Scale_Integer_Set(i, i + 1);
+            Accumulator_Present_Value_Set(i, unsigned_value);
+            unsigned_value |= (unsigned_value << 1);
+        }
     }
 }

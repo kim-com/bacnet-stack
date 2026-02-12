@@ -129,7 +129,8 @@ struct object_data {
 #define BACNET_NETWORK_PORTS_MAX 1
 #endif
 
-static struct object_data Object_List[BACNET_NETWORK_PORTS_MAX];
+static struct object_data Object_List[MAX_NUM_DEVICES]
+                                     [BACNET_NETWORK_PORTS_MAX];
 
 /* BACnetARRAY of REAL, is an array of the link speeds
    supported by this network port */
@@ -382,6 +383,7 @@ void Network_Port_Property_List(
     const int32_t **pOptional,
     const int32_t **pProprietary)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     if (pRequired) {
@@ -390,7 +392,7 @@ void Network_Port_Property_List(
     if (pOptional) {
         index = Network_Port_Instance_To_Index(object_instance);
         if (index < BACNET_NETWORK_PORTS_MAX) {
-            switch (Object_List[index].Network_Type) {
+            switch (Object_List[device_idx][index].Network_Type) {
                 case PORT_TYPE_MSTP:
                     *pOptional = MSTP_Port_Properties_Optional;
                     break;
@@ -425,15 +427,16 @@ void Network_Port_Property_List(
  * @param  object_instance - object-instance number of the object
  * @param  properties - Pointer to the pointer of writable properties.
  */
-void Network_Port_Writable_Property_List(
+ void Network_Port_Writable_Property_List(
     uint32_t object_instance, const int32_t **properties)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
         if (index < BACNET_NETWORK_PORTS_MAX) {
-            switch (Object_List[index].Network_Type) {
+            switch (Object_List[device_idx][index].Network_Type) {
                 case PORT_TYPE_MSTP:
                     *properties = MSTP_Port_Writable_Properties;
                     break;
@@ -474,8 +477,10 @@ void Network_Port_Property_Lists(
     const int32_t **pOptional,
     const int32_t **pProprietary)
 {
+    const int device_idx = Routed_Device_Object_Index();
     Network_Port_Property_List(
-        Object_List[0].Instance_Number, pRequired, pOptional, pProprietary);
+        Object_List[device_idx][0].Instance_Number, pRequired, pOptional,
+        pProprietary);
 }
 
 /**
@@ -517,13 +522,14 @@ static bool Property_List_Member(uint32_t object_instance, int object_property)
 bool Network_Port_Object_Name(
     uint32_t object_instance, BACNET_CHARACTER_STRING *object_name)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
         status = characterstring_init_ansi(
-            object_name, Object_List[index].Object_Name);
+            object_name, Object_List[device_idx][index].Object_Name);
     }
 
     return status;
@@ -541,12 +547,13 @@ bool Network_Port_Object_Name(
  */
 bool Network_Port_Name_Set(uint32_t object_instance, const char *new_name)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Object_Name = new_name;
+        Object_List[device_idx][index].Object_Name = new_name;
         status = true;
     }
 
@@ -560,11 +567,12 @@ bool Network_Port_Name_Set(uint32_t object_instance, const char *new_name)
  */
 const char *Network_Port_Object_Name_ASCII(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        return Object_List[index].Object_Name;
+        return Object_List[device_idx][index].Object_Name;
     }
 
     return NULL;
@@ -577,11 +585,12 @@ const char *Network_Port_Object_Name_ASCII(uint32_t object_instance)
  */
 const char *Network_Port_Description(uint32_t instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
 
     index = Network_Port_Instance_To_Index(instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        return Object_List[index].Description;
+        return Object_List[device_idx][index].Description;
     }
 
     return NULL;
@@ -599,12 +608,13 @@ const char *Network_Port_Description(uint32_t instance)
  */
 bool Network_Port_Description_Set(uint32_t instance, const char *new_name)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Description = new_name;
+        Object_List[device_idx][index].Description = new_name;
         status = true;
     }
 
@@ -651,8 +661,9 @@ unsigned Network_Port_Count(void)
  */
 uint32_t Network_Port_Index_To_Instance(unsigned index)
 {
+    const int device_idx = Routed_Device_Object_Index();
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        return Object_List[index].Instance_Number;
+        return Object_List[device_idx][index].Instance_Number;
     }
 
     return BACNET_MAX_INSTANCE;
@@ -669,10 +680,11 @@ uint32_t Network_Port_Index_To_Instance(unsigned index)
  */
 unsigned Network_Port_Instance_To_Index(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     for (index = 0; index < BACNET_NETWORK_PORTS_MAX; index++) {
-        if (Object_List[index].Instance_Number == object_instance) {
+        if (Object_List[device_idx][index].Instance_Number == object_instance) {
             return index;
         }
     }
@@ -691,11 +703,12 @@ unsigned Network_Port_Instance_To_Index(uint32_t object_instance)
 bool Network_Port_Object_Instance_Number_Set(
     unsigned index, uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
 
     if (index < BACNET_NETWORK_PORTS_MAX) {
         if (object_instance <= BACNET_MAX_INSTANCE) {
-            Object_List[index].Instance_Number = object_instance;
+            Object_List[device_idx][index].Instance_Number = object_instance;
             status = true;
         }
     }
@@ -713,12 +726,13 @@ bool Network_Port_Object_Instance_Number_Set(
  */
 bool Network_Port_Out_Of_Service(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool oos_flag = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        oos_flag = Object_List[index].Out_Of_Service;
+        oos_flag = Object_List[device_idx][index].Out_Of_Service;
     }
 
     return oos_flag;
@@ -734,12 +748,13 @@ bool Network_Port_Out_Of_Service(uint32_t object_instance)
  */
 bool Network_Port_Out_Of_Service_Set(uint32_t object_instance, bool value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Out_Of_Service = value;
+        Object_List[device_idx][index].Out_Of_Service = value;
         status = true;
     }
 
@@ -755,12 +770,13 @@ bool Network_Port_Out_Of_Service_Set(uint32_t object_instance, bool value)
  */
 BACNET_RELIABILITY Network_Port_Reliability(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        reliability = Object_List[index].Reliability;
+        reliability = Object_List[device_idx][index].Reliability;
     }
 
     return reliability;
@@ -777,12 +793,13 @@ BACNET_RELIABILITY Network_Port_Reliability(uint32_t object_instance)
 bool Network_Port_Reliability_Set(
     uint32_t object_instance, BACNET_RELIABILITY value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Reliability = value;
+        Object_List[device_idx][index].Reliability = value;
         status = true;
     }
 
@@ -798,12 +815,13 @@ bool Network_Port_Reliability_Set(
  */
 uint8_t Network_Port_Type(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint8_t port_type = PORT_TYPE_NON_BACNET;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        port_type = Object_List[index].Network_Type;
+        port_type = Object_List[device_idx][index].Network_Type;
 #if (BACNET_PROTOCOL_REVISION >= 17) && (BACNET_PROTOCOL_REVISION <= 23)
         /*  For BACnet/SC network port implementations with
             a protocol revision Protocol_Revision 17 and higher through 23,
@@ -831,6 +849,7 @@ uint8_t Network_Port_Type(uint32_t object_instance)
  */
 bool Network_Port_Type_Set(uint32_t object_instance, uint8_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
@@ -846,7 +865,7 @@ bool Network_Port_Type_Set(uint32_t object_instance, uint8_t value)
             value = PORT_TYPE_BSC;
         }
 #endif
-        Object_List[index].Network_Type = value;
+        Object_List[device_idx][index].Network_Type = value;
 
         status = true;
     }
@@ -863,12 +882,13 @@ bool Network_Port_Type_Set(uint32_t object_instance, uint8_t value)
  */
 uint16_t Network_Port_Network_Number(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t network_number = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        network_number = Object_List[index].Network_Number;
+        network_number = Object_List[device_idx][index].Network_Number;
     }
 
     return network_number;
@@ -884,12 +904,13 @@ uint16_t Network_Port_Network_Number(uint32_t object_instance)
  */
 bool Network_Port_Network_Number_Set(uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Network_Number = value;
+        Object_List[device_idx][index].Network_Number = value;
         status = true;
     }
 
@@ -905,12 +926,13 @@ bool Network_Port_Network_Number_Set(uint32_t object_instance, uint16_t value)
  */
 BACNET_PORT_QUALITY Network_Port_Quality(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_PORT_QUALITY value = PORT_QUALITY_UNKNOWN;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        value = Object_List[index].Quality;
+        value = Object_List[device_idx][index].Quality;
     }
 
     return value;
@@ -927,12 +949,13 @@ BACNET_PORT_QUALITY Network_Port_Quality(uint32_t object_instance)
 bool Network_Port_Quality_Set(
     uint32_t object_instance, BACNET_PORT_QUALITY value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Quality = value;
+        Object_List[device_idx][index].Quality = value;
         status = true;
     }
 
@@ -953,6 +976,7 @@ bool Network_Port_Quality_Set(
 uint8_t Network_Port_MAC_Address_Value(
     uint32_t object_instance, uint8_t *mac_address, size_t mac_size)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     uint8_t *mac = NULL;
     uint8_t ip_mac[4 + 2] = { 0 };
@@ -960,36 +984,46 @@ uint8_t Network_Port_MAC_Address_Value(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_ETHERNET:
-                mac = &Object_List[index].Network.Ethernet.MAC_Address[0];
-                mac_len =
-                    sizeof(Object_List[index].Network.Ethernet.MAC_Address);
+                mac = &Object_List[device_idx][index]
+                           .Network.Ethernet.MAC_Address[0];
+                mac_len = sizeof(Object_List[device_idx][index]
+                                     .Network.Ethernet.MAC_Address);
                 break;
             case PORT_TYPE_ZIGBEE:
-                mac = &Object_List[index].Network.Zigbee.MAC_Address[0];
-                mac_len = sizeof(Object_List[index].Network.Zigbee.MAC_Address);
+                mac = &Object_List[device_idx][index]
+                           .Network.Zigbee.MAC_Address[0];
+                mac_len = sizeof(
+                    Object_List[device_idx][index].Network.Zigbee.MAC_Address);
                 break;
             case PORT_TYPE_MSTP:
-                mac = &Object_List[index].Network.MSTP.MAC_Address;
-                mac_len = sizeof(Object_List[index].Network.MSTP.MAC_Address);
+                mac = &Object_List[device_idx][index].Network.MSTP.MAC_Address;
+                mac_len = sizeof(
+                    Object_List[device_idx][index].Network.MSTP.MAC_Address);
                 break;
             case PORT_TYPE_BIP:
                 memcpy(
-                    &ip_mac[0], &Object_List[index].Network.IPv4.IP_Address, 4);
+                    &ip_mac[0],
+                    &Object_List[device_idx][index].Network.IPv4.IP_Address, 4);
                 /* convert port from host-byte-order to network-byte-order */
                 encode_unsigned16(
-                    &ip_mac[4], Object_List[index].Network.IPv4.Port);
+                    &ip_mac[4],
+                    Object_List[device_idx][index].Network.IPv4.Port);
                 mac = &ip_mac[0];
                 mac_len = sizeof(ip_mac);
                 break;
             case PORT_TYPE_BIP6:
-                mac = &Object_List[index].Network.IPv6.MAC_Address[0];
-                mac_len = sizeof(Object_List[index].Network.IPv6.MAC_Address);
+                mac =
+                    &Object_List[device_idx][index].Network.IPv6.MAC_Address[0];
+                mac_len = sizeof(
+                    Object_List[device_idx][index].Network.IPv6.MAC_Address);
                 break;
             case PORT_TYPE_BSC:
-                mac = &Object_List[index].Network.BSC.MAC_Address[0];
-                mac_len = sizeof(Object_List[index].Network.BSC.MAC_Address);
+                mac =
+                    &Object_List[device_idx][index].Network.BSC.MAC_Address[0];
+                mac_len = sizeof(
+                    Object_List[device_idx][index].Network.BSC.MAC_Address);
                 break;
             default:
                 break;
@@ -1041,6 +1075,7 @@ bool Network_Port_MAC_Address(
 bool Network_Port_MAC_Address_Set(
     uint32_t object_instance, const uint8_t *mac_src, uint8_t mac_len)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     size_t mac_size = 0;
@@ -1048,45 +1083,54 @@ bool Network_Port_MAC_Address_Set(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_ETHERNET:
-                mac_dest = &Object_List[index].Network.Ethernet.MAC_Address[0];
-                mac_size =
-                    sizeof(Object_List[index].Network.Ethernet.MAC_Address);
+                mac_dest = &Object_List[device_idx][index]
+                                .Network.Ethernet.MAC_Address[0];
+                mac_size = sizeof(Object_List[device_idx][index]
+                                      .Network.Ethernet.MAC_Address);
                 break;
             case PORT_TYPE_ZIGBEE:
-                mac_dest = &Object_List[index].Network.Zigbee.MAC_Address[0];
-                mac_size =
-                    sizeof(Object_List[index].Network.Zigbee.MAC_Address);
+                mac_dest = &Object_List[device_idx][index]
+                                .Network.Zigbee.MAC_Address[0];
+                mac_size = sizeof(
+                    Object_List[device_idx][index].Network.Zigbee.MAC_Address);
                 break;
             case PORT_TYPE_MSTP:
-                mac_dest = &Object_List[index].Network.MSTP.MAC_Address;
-                mac_size = sizeof(Object_List[index].Network.MSTP.MAC_Address);
+                mac_dest =
+                    &Object_List[device_idx][index].Network.MSTP.MAC_Address;
+                mac_size = sizeof(
+                    Object_List[device_idx][index].Network.MSTP.MAC_Address);
                 break;
             case PORT_TYPE_BIP:
                 if (mac_len >= 6) {
                     memcpy(
-                        &Object_List[index].Network.IPv4.IP_Address,
+                        &Object_List[device_idx][index].Network.IPv4.IP_Address,
                         &mac_src[0], 4);
                     /* convert from network-byte-order to host-byte-order */
                     decode_unsigned16(
-                        &mac_src[4], &Object_List[index].Network.IPv4.Port);
+                        &mac_src[4],
+                        &Object_List[device_idx][index].Network.IPv4.Port);
                     status = true;
                 }
                 break;
             case PORT_TYPE_BIP6:
-                mac_dest = &Object_List[index].Network.IPv6.MAC_Address[0];
-                mac_size = sizeof(Object_List[index].Network.IPv6.MAC_Address);
+                mac_dest =
+                    &Object_List[device_idx][index].Network.IPv6.MAC_Address[0];
+                mac_size = sizeof(
+                    Object_List[device_idx][index].Network.IPv6.MAC_Address);
                 break;
             case PORT_TYPE_BSC:
-                mac_dest = &Object_List[index].Network.BSC.MAC_Address[0];
-                mac_size = sizeof(Object_List[index].Network.BSC.MAC_Address);
+                mac_dest =
+                    &Object_List[device_idx][index].Network.BSC.MAC_Address[0];
+                mac_size = sizeof(
+                    Object_List[device_idx][index].Network.BSC.MAC_Address);
                 break;
             default:
                 break;
         }
         if (mac_src && mac_dest && (mac_len == mac_size)) {
-            Object_List[index].Changes_Pending = true;
+            Object_List[device_idx][index].Changes_Pending = true;
             memcpy(mac_dest, mac_src, mac_size);
             status = true;
         }
@@ -1104,12 +1148,13 @@ bool Network_Port_MAC_Address_Set(
  */
 uint16_t Network_Port_APDU_Length(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        value = Object_List[index].APDU_Length;
+        value = Object_List[device_idx][index].APDU_Length;
     }
 
     return value;
@@ -1125,12 +1170,13 @@ uint16_t Network_Port_APDU_Length(uint32_t object_instance)
  */
 bool Network_Port_APDU_Length_Set(uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].APDU_Length = value;
+        Object_List[device_idx][index].APDU_Length = value;
         status = true;
     }
 
@@ -1148,12 +1194,13 @@ bool Network_Port_APDU_Length_Set(uint32_t object_instance, uint16_t value)
  */
 float Network_Port_Link_Speed(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     float value = 0.0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        value = Object_List[index].Link_Speed;
+        value = Object_List[device_idx][index].Link_Speed;
     }
 
     return value;
@@ -1226,13 +1273,14 @@ static bool Network_Port_Link_Speed_Valid(const float value)
  */
 bool Network_Port_Link_Speed_Set(uint32_t object_instance, float value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Link_Speed = value;
-        Object_List[index].Changes_Pending = true;
+        Object_List[device_idx][index].Link_Speed = value;
+        Object_List[device_idx][index].Changes_Pending = true;
         status = true;
     }
 
@@ -1249,12 +1297,13 @@ bool Network_Port_Link_Speed_Set(uint32_t object_instance, float value)
  */
 bool Network_Port_Changes_Pending(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool flag = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        flag = Object_List[index].Changes_Pending;
+        flag = Object_List[device_idx][index].Changes_Pending;
     }
 
     return flag;
@@ -1270,12 +1319,13 @@ bool Network_Port_Changes_Pending(uint32_t object_instance)
  */
 bool Network_Port_Changes_Pending_Set(uint32_t object_instance, bool value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Changes_Pending = value;
+        Object_List[device_idx][index].Changes_Pending = value;
         if (value == false) {
             Network_Port_Changes_Pending_Discard(object_instance);
         }
@@ -1291,12 +1341,13 @@ bool Network_Port_Changes_Pending_Set(uint32_t object_instance, bool value)
  */
 void Network_Port_Changes_Pending_Activate(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Activate_Changes) {
-            Object_List[index].Activate_Changes(object_instance);
+        if (Object_List[device_idx][index].Activate_Changes) {
+            Object_List[device_idx][index].Activate_Changes(object_instance);
         }
     }
 }
@@ -1309,11 +1360,12 @@ void Network_Port_Changes_Pending_Activate_Callback_Set(
     uint32_t object_instance, bacnet_network_port_activate_changes callback)
 
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Activate_Changes = callback;
+        Object_List[device_idx][index].Activate_Changes = callback;
     }
 }
 
@@ -1323,13 +1375,14 @@ void Network_Port_Changes_Pending_Activate_Callback_Set(
  */
 void Network_Port_Changes_Pending_Discard(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Discard_Changes) {
-            Object_List[index].Discard_Changes(object_instance);
-            Object_List[index].Changes_Pending = false;
+        if (Object_List[device_idx][index].Discard_Changes) {
+            Object_List[device_idx][index].Discard_Changes(object_instance);
+            Object_List[device_idx][index].Changes_Pending = false;
         }
     }
 }
@@ -1342,11 +1395,12 @@ void Network_Port_Changes_Pending_Discard_Callback_Set(
     uint32_t object_instance, bacnet_network_port_discard_changes callback)
 
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Discard_Changes = callback;
+        Object_List[device_idx][index].Discard_Changes = callback;
     }
 }
 
@@ -1360,13 +1414,14 @@ void Network_Port_Changes_Pending_Discard_Callback_Set(
  */
 uint8_t Network_Port_MSTP_MAC_Address(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint8_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_MSTP) {
-            value = Object_List[index].Network.MSTP.MAC_Address;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_MSTP) {
+            value = Object_List[device_idx][index].Network.MSTP.MAC_Address;
         }
     }
 
@@ -1384,17 +1439,19 @@ uint8_t Network_Port_MSTP_MAC_Address(uint32_t object_instance)
  */
 bool Network_Port_MSTP_MAC_Address_Set(uint32_t object_instance, uint8_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_MSTP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_MSTP) {
             if (value <= 127) {
-                if (Object_List[index].Network.MSTP.MAC_Address != value) {
-                    Object_List[index].Changes_Pending = true;
+                if (Object_List[device_idx][index].Network.MSTP.MAC_Address !=
+                    value) {
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.MSTP.MAC_Address = value;
+                Object_List[device_idx][index].Network.MSTP.MAC_Address = value;
                 status = true;
             }
         }
@@ -1413,13 +1470,14 @@ bool Network_Port_MSTP_MAC_Address_Set(uint32_t object_instance, uint8_t value)
  */
 uint8_t Network_Port_MSTP_Max_Master(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint8_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_MSTP) {
-            value = Object_List[index].Network.MSTP.Max_Master;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_MSTP) {
+            value = Object_List[device_idx][index].Network.MSTP.Max_Master;
         }
     }
 
@@ -1437,17 +1495,19 @@ uint8_t Network_Port_MSTP_Max_Master(uint32_t object_instance)
  */
 bool Network_Port_MSTP_Max_Master_Set(uint32_t object_instance, uint8_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_MSTP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_MSTP) {
             if (value <= 127) {
-                if (Object_List[index].Network.MSTP.Max_Master != value) {
-                    Object_List[index].Changes_Pending = true;
+                if (Object_List[device_idx][index].Network.MSTP.Max_Master !=
+                    value) {
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.MSTP.Max_Master = value;
+                Object_List[device_idx][index].Network.MSTP.Max_Master = value;
                 status = true;
             }
         }
@@ -1469,14 +1529,16 @@ bool Network_Port_MSTP_Max_Master_Set(uint32_t object_instance, uint8_t value)
 bool Network_Port_IP_Address(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             status = octetstring_init(
-                ip_address, &Object_List[index].Network.IPv4.IP_Address[0], 4);
+                ip_address,
+                &Object_List[device_idx][index].Network.IPv4.IP_Address[0], 4);
         }
     }
 
@@ -1498,16 +1560,17 @@ bool Network_Port_IP_Address(
 bool Network_Port_IP_Address_Set(
     uint32_t object_instance, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            Object_List[index].Network.IPv4.IP_Address[0] = a;
-            Object_List[index].Network.IPv4.IP_Address[1] = b;
-            Object_List[index].Network.IPv4.IP_Address[2] = c;
-            Object_List[index].Network.IPv4.IP_Address[3] = d;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            Object_List[device_idx][index].Network.IPv4.IP_Address[0] = a;
+            Object_List[device_idx][index].Network.IPv4.IP_Address[1] = b;
+            Object_List[device_idx][index].Network.IPv4.IP_Address[2] = c;
+            Object_List[device_idx][index].Network.IPv4.IP_Address[3] = d;
             status = true;
         }
     }
@@ -1528,6 +1591,7 @@ bool Network_Port_IP_Address_Set(
 bool Network_Port_IP_Subnet(
     uint32_t object_instance, BACNET_OCTET_STRING *subnet_mask)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     uint32_t mask = 0;
@@ -1536,8 +1600,9 @@ bool Network_Port_IP_Subnet(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            prefix = Object_List[index].Network.IPv4.IP_Subnet_Prefix;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            prefix =
+                Object_List[device_idx][index].Network.IPv4.IP_Subnet_Prefix;
             if ((prefix > 0) && (prefix <= 32)) {
                 mask = (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
                 encode_unsigned32(ip_mask, mask);
@@ -1559,13 +1624,15 @@ bool Network_Port_IP_Subnet(
  */
 uint8_t Network_Port_IP_Subnet_Prefix(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint8_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            value = Object_List[index].Network.IPv4.IP_Subnet_Prefix;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            value =
+                Object_List[device_idx][index].Network.IPv4.IP_Subnet_Prefix;
         }
     }
 
@@ -1583,17 +1650,20 @@ uint8_t Network_Port_IP_Subnet_Prefix(uint32_t object_instance)
  */
 bool Network_Port_IP_Subnet_Prefix_Set(uint32_t object_instance, uint8_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             if ((value > 0) && (value <= 32)) {
-                if (Object_List[index].Network.IPv4.IP_Subnet_Prefix != value) {
-                    Object_List[index].Changes_Pending = true;
+                if (Object_List[device_idx][index]
+                        .Network.IPv4.IP_Subnet_Prefix != value) {
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.IPv4.IP_Subnet_Prefix = value;
+                Object_List[device_idx][index].Network.IPv4.IP_Subnet_Prefix =
+                    value;
                 status = true;
             }
         }
@@ -1615,14 +1685,16 @@ bool Network_Port_IP_Subnet_Prefix_Set(uint32_t object_instance, uint8_t value)
 bool Network_Port_IP_Gateway(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             status = octetstring_init(
-                ip_address, &Object_List[index].Network.IPv4.IP_Gateway[0], 4);
+                ip_address,
+                &Object_List[device_idx][index].Network.IPv4.IP_Gateway[0], 4);
         }
     }
 
@@ -1644,16 +1716,17 @@ bool Network_Port_IP_Gateway(
 bool Network_Port_IP_Gateway_Set(
     uint32_t object_instance, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            Object_List[index].Network.IPv4.IP_Gateway[0] = a;
-            Object_List[index].Network.IPv4.IP_Gateway[1] = b;
-            Object_List[index].Network.IPv4.IP_Gateway[2] = c;
-            Object_List[index].Network.IPv4.IP_Gateway[3] = d;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            Object_List[device_idx][index].Network.IPv4.IP_Gateway[0] = a;
+            Object_List[device_idx][index].Network.IPv4.IP_Gateway[1] = b;
+            Object_List[device_idx][index].Network.IPv4.IP_Gateway[2] = c;
+            Object_List[device_idx][index].Network.IPv4.IP_Gateway[3] = d;
             status = true;
         }
     }
@@ -1671,15 +1744,19 @@ bool Network_Port_IP_Gateway_Set(
  */
 bool Network_Port_IP_DHCP_Enable(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool dhcp_enable = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            dhcp_enable = Object_List[index].Network.IPv4.IP_DHCP_Enable;
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            dhcp_enable = Object_List[index].Network.IPv6.IP_DHCP_Enable;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            dhcp_enable =
+                Object_List[device_idx][index].Network.IPv4.IP_DHCP_Enable;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            dhcp_enable =
+                Object_List[device_idx][index].Network.IPv6.IP_DHCP_Enable;
         }
     }
 
@@ -1696,22 +1773,26 @@ bool Network_Port_IP_DHCP_Enable(uint32_t object_instance)
  */
 bool Network_Port_IP_DHCP_Enable_Set(uint32_t object_instance, bool value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            if (Object_List[index].Network.IPv4.IP_DHCP_Enable != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            if (Object_List[device_idx][index].Network.IPv4.IP_DHCP_Enable !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv4.IP_DHCP_Enable = value;
+            Object_List[device_idx][index].Network.IPv4.IP_DHCP_Enable = value;
             status = true;
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            if (Object_List[index].Network.IPv6.IP_DHCP_Enable != value) {
-                Object_List[index].Changes_Pending = true;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            if (Object_List[device_idx][index].Network.IPv6.IP_DHCP_Enable !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv6.IP_DHCP_Enable = value;
+            Object_List[device_idx][index].Network.IPv6.IP_DHCP_Enable = value;
             status = true;
         }
     }
@@ -1735,16 +1816,17 @@ bool Network_Port_IP_DNS_Server(
     unsigned dns_index,
     BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             if (dns_index < BIP_DNS_MAX) {
                 status = octetstring_init(
                     ip_address,
-                    &Object_List[index]
+                    &Object_List[device_idx][index]
                          .Network.IPv4.IP_DNS_Server[dns_index][0],
                     4);
             }
@@ -1802,25 +1884,30 @@ bool Network_Port_IP_DNS_Server_Set(
     uint8_t c,
     uint8_t d)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     uint8_t *dns_server = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             if (dns_index < BIP_DNS_MAX) {
-                dns_server = &Object_List[index]
+                dns_server = &Object_List[device_idx][index]
                                   .Network.IPv4.IP_DNS_Server[dns_index][0];
                 if ((dns_server[0] != a) || (dns_server[1] != b) ||
                     (dns_server[2] != c) || (dns_server[3] != d)) {
                     /* octets are different, set changes pending */
-                    Object_List[index].Changes_Pending = true;
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.IPv4.IP_DNS_Server[dns_index][0] = a;
-                Object_List[index].Network.IPv4.IP_DNS_Server[dns_index][1] = b;
-                Object_List[index].Network.IPv4.IP_DNS_Server[dns_index][2] = c;
-                Object_List[index].Network.IPv4.IP_DNS_Server[dns_index][3] = d;
+                Object_List[device_idx][index]
+                    .Network.IPv4.IP_DNS_Server[dns_index][0] = a;
+                Object_List[device_idx][index]
+                    .Network.IPv4.IP_DNS_Server[dns_index][1] = b;
+                Object_List[device_idx][index]
+                    .Network.IPv4.IP_DNS_Server[dns_index][2] = c;
+                Object_List[device_idx][index]
+                    .Network.IPv4.IP_DNS_Server[dns_index][3] = d;
                 status = true;
             }
         }
@@ -1839,13 +1926,14 @@ bool Network_Port_IP_DNS_Server_Set(
  */
 uint16_t Network_Port_BIP_Port(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            value = Object_List[index].Network.IPv4.Port;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            value = Object_List[device_idx][index].Network.IPv4.Port;
         }
     }
 
@@ -1863,16 +1951,17 @@ uint16_t Network_Port_BIP_Port(uint32_t object_instance)
  */
 bool Network_Port_BIP_Port_Set(uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            if (Object_List[index].Network.IPv4.Port != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            if (Object_List[device_idx][index].Network.IPv4.Port != value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv4.Port = value;
+            Object_List[device_idx][index].Network.IPv4.Port = value;
             status = true;
         }
     }
@@ -1890,13 +1979,14 @@ bool Network_Port_BIP_Port_Set(uint32_t object_instance, uint16_t value)
  */
 BACNET_IP_MODE Network_Port_BIP_Mode(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_IP_MODE value = BACNET_IP_MODE_NORMAL;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            value = Object_List[index].Network.IPv4.Mode;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            value = Object_List[device_idx][index].Network.IPv4.Mode;
         }
     }
 
@@ -1914,16 +2004,17 @@ BACNET_IP_MODE Network_Port_BIP_Mode(uint32_t object_instance)
  */
 bool Network_Port_BIP_Mode_Set(uint32_t object_instance, BACNET_IP_MODE value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            if (Object_List[index].Network.IPv4.Mode != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            if (Object_List[device_idx][index].Network.IPv4.Mode != value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv4.Mode = value;
+            Object_List[device_idx][index].Network.IPv4.Mode = value;
             status = true;
         }
     }
@@ -1941,6 +2032,7 @@ bool Network_Port_BIP_Mode_Set(uint32_t object_instance, BACNET_IP_MODE value)
  */
 bool Network_Port_BBMD_Accept_FD_Registrations(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool flag = false;
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
@@ -1948,11 +2040,12 @@ bool Network_Port_BBMD_Accept_FD_Registrations(uint32_t object_instance)
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            ipv4 = &Object_List[index].Network.IPv4;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            ipv4 = &Object_List[device_idx][index].Network.IPv4;
             flag = ipv4->BBMD_Accept_FD_Registrations;
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            ipv6 = &Object_List[index].Network.IPv6;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            ipv6 = &Object_List[device_idx][index].Network.IPv6;
             flag = ipv6->BBMD_Accept_FD_Registrations;
         }
     }
@@ -1972,6 +2065,7 @@ bool Network_Port_BBMD_Accept_FD_Registrations(uint32_t object_instance)
 bool Network_Port_BBMD_Accept_FD_Registrations_Set(
     uint32_t object_instance, bool flag)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
@@ -1979,18 +2073,19 @@ bool Network_Port_BBMD_Accept_FD_Registrations_Set(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            ipv4 = &Object_List[index].Network.IPv4;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            ipv4 = &Object_List[device_idx][index].Network.IPv4;
             if (flag != ipv4->BBMD_Accept_FD_Registrations) {
                 ipv4->BBMD_Accept_FD_Registrations = flag;
-                Object_List[index].Changes_Pending = true;
+                Object_List[device_idx][index].Changes_Pending = true;
             }
             status = true;
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            ipv6 = &Object_List[index].Network.IPv6;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            ipv6 = &Object_List[device_idx][index].Network.IPv6;
             if (flag != ipv6->BBMD_Accept_FD_Registrations) {
                 ipv6->BBMD_Accept_FD_Registrations = flag;
-                Object_List[index].Changes_Pending = true;
+                Object_List[device_idx][index].Changes_Pending = true;
             }
             status = true;
         }
@@ -2009,13 +2104,14 @@ bool Network_Port_BBMD_Accept_FD_Registrations_Set(
  */
 void *Network_Port_BBMD_BD_Table(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     void *bdt_head = NULL;
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv4 = &Object_List[index].Network.IPv4;
+        ipv4 = &Object_List[device_idx][index].Network.IPv4;
         bdt_head = ipv4->BBMD_BD_Table;
     }
 
@@ -2032,6 +2128,7 @@ void *Network_Port_BBMD_BD_Table(uint32_t object_instance)
 static int BBMD_Broadcast_Distribution_Table_Encode(
     uint32_t object_instance, uint8_t *apdu, size_t apdu_size)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
     struct bacnet_ipv6_port *ipv6 = NULL;
@@ -2039,12 +2136,13 @@ static int BBMD_Broadcast_Distribution_Table_Encode(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            ipv4 = &Object_List[index].Network.IPv4;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            ipv4 = &Object_List[device_idx][index].Network.IPv4;
             apdu_len = bvlc_broadcast_distribution_table_encode(
                 apdu, apdu_size, ipv4->BBMD_BD_Table);
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            ipv6 = &Object_List[index].Network.IPv6;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            ipv6 = &Object_List[device_idx][index].Network.IPv6;
             apdu_len = bvlc6_broadcast_distribution_table_encode(
                 apdu, apdu_size, ipv6->BBMD_BD_Table);
         }
@@ -2062,14 +2160,16 @@ static int BBMD_Broadcast_Distribution_Table_Encode(
 static size_t
 BBMD_Broadcast_Distribution_Table_Capacity(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_IP_BROADCAST_DISTRIBUTION_TABLE_ENTRY *bdt_list;
     size_t capacity = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            bdt_list = Object_List[index].Network.IPv4.BBMD_BD_Table;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            bdt_list =
+                Object_List[device_idx][index].Network.IPv4.BBMD_BD_Table;
             capacity = bvlc_broadcast_distribution_table_count(bdt_list);
         }
     }
@@ -2087,12 +2187,13 @@ BBMD_Broadcast_Distribution_Table_Capacity(uint32_t object_instance)
 static int BBMD_Broadcast_Distribution_Table_Element_Length(
     uint32_t object_instance, uint8_t *apdu, size_t apdu_size)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int len = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             len = bvlc_decode_broadcast_distribution_table_entry(
                 apdu, apdu_size, NULL);
         }
@@ -2117,6 +2218,7 @@ static BACNET_ERROR_CODE BBMD_Broadcast_Distribution_Table_Element_Write(
     uint8_t *application_data,
     size_t application_data_len)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_ERROR_CODE error_code = ERROR_CODE_UNKNOWN_OBJECT;
     BACNET_IP_BROADCAST_DISTRIBUTION_TABLE_ENTRY bdt_entry = { 0 };
     BACNET_IP_BROADCAST_DISTRIBUTION_TABLE_ENTRY *bdt_list;
@@ -2127,8 +2229,9 @@ static BACNET_ERROR_CODE BBMD_Broadcast_Distribution_Table_Element_Write(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            bdt_list = Object_List[index].Network.IPv4.BBMD_BD_Table;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            bdt_list =
+                Object_List[device_idx][index].Network.IPv4.BBMD_BD_Table;
             capacity = bvlc_broadcast_distribution_table_count(bdt_list);
             if (array_index == 0) {
                 error_code = ERROR_CODE_PROPERTY_IS_NOT_AN_ARRAY;
@@ -2169,16 +2272,17 @@ static BACNET_ERROR_CODE BBMD_Broadcast_Distribution_Table_Element_Write(
  */
 bool Network_Port_BBMD_BD_Table_Set(uint32_t object_instance, void *bdt_head)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv4 = &Object_List[index].Network.IPv4;
+        ipv4 = &Object_List[device_idx][index].Network.IPv4;
         if (bdt_head != ipv4->BBMD_BD_Table) {
             ipv4->BBMD_BD_Table = bdt_head;
-            Object_List[index].Changes_Pending = true;
+            Object_List[device_idx][index].Changes_Pending = true;
         }
         status = true;
     }
@@ -2196,13 +2300,14 @@ bool Network_Port_BBMD_BD_Table_Set(uint32_t object_instance, void *bdt_head)
  */
 void *Network_Port_BBMD_FD_Table(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     void *fdt_head = NULL;
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv4 = &Object_List[index].Network.IPv4;
+        ipv4 = &Object_List[device_idx][index].Network.IPv4;
         fdt_head = ipv4->BBMD_FD_Table;
     }
 
@@ -2220,16 +2325,17 @@ void *Network_Port_BBMD_FD_Table(uint32_t object_instance)
  */
 bool Network_Port_BBMD_FD_Table_Set(uint32_t object_instance, void *fdt_head)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv4 = &Object_List[index].Network.IPv4;
+        ipv4 = &Object_List[device_idx][index].Network.IPv4;
         if (fdt_head != ipv4->BBMD_FD_Table) {
             ipv4->BBMD_FD_Table = fdt_head;
-            Object_List[index].Changes_Pending = true;
+            Object_List[device_idx][index].Changes_Pending = true;
         }
         status = true;
     }
@@ -2247,6 +2353,7 @@ bool Network_Port_BBMD_FD_Table_Set(uint32_t object_instance, void *fdt_head)
 static int BBMD_Foreign_Device_Table_Encode(
     uint32_t object_instance, uint8_t *apdu, size_t apdu_size)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     struct bacnet_ipv4_port *ipv4 = NULL;
     struct bacnet_ipv6_port *ipv6 = NULL;
@@ -2254,12 +2361,13 @@ static int BBMD_Foreign_Device_Table_Encode(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            ipv4 = &Object_List[index].Network.IPv4;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            ipv4 = &Object_List[device_idx][index].Network.IPv4;
             apdu_len = bvlc_foreign_device_table_encode(
                 apdu, apdu_size, ipv4->BBMD_FD_Table);
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            ipv6 = &Object_List[index].Network.IPv6;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            ipv6 = &Object_List[device_idx][index].Network.IPv6;
             apdu_len = bvlc6_foreign_device_table_encode(
                 apdu, apdu_size, ipv6->BBMD_FD_Table);
         }
@@ -2276,14 +2384,16 @@ static int BBMD_Foreign_Device_Table_Encode(
  */
 static size_t BBMD_Foreign_Device_Table_Capacity(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_IP_FOREIGN_DEVICE_TABLE_ENTRY *fdt_list;
     size_t capacity = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            fdt_list = Object_List[index].Network.IPv4.BBMD_FD_Table;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            fdt_list =
+                Object_List[device_idx][index].Network.IPv4.BBMD_FD_Table;
             capacity = bvlc_foreign_device_table_count(fdt_list);
         }
     }
@@ -2301,12 +2411,13 @@ static size_t BBMD_Foreign_Device_Table_Capacity(uint32_t object_instance)
 static int BBMD_Foreign_Device_Table_Element_Length(
     uint32_t object_instance, uint8_t *apdu, size_t apdu_size)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int len = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             len = bvlc_decode_foreign_device_table_entry(apdu, apdu_size, NULL);
         }
     }
@@ -2330,6 +2441,7 @@ static BACNET_ERROR_CODE BBMD_Foreign_Device_Table_Element_Write(
     uint8_t *application_data,
     size_t application_data_len)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_ERROR_CODE error_code = ERROR_CODE_UNKNOWN_OBJECT;
     BACNET_IP_FOREIGN_DEVICE_TABLE_ENTRY fdt_entry = { 0 };
     BACNET_IP_FOREIGN_DEVICE_TABLE_ENTRY *fdt_list;
@@ -2340,8 +2452,9 @@ static BACNET_ERROR_CODE BBMD_Foreign_Device_Table_Element_Write(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            fdt_list = Object_List[index].Network.IPv4.BBMD_FD_Table;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            fdt_list =
+                Object_List[device_idx][index].Network.IPv4.BBMD_FD_Table;
             capacity = bvlc_foreign_device_table_count(fdt_list);
             if (array_index == 0) {
                 error_code = ERROR_CODE_PROPERTY_IS_NOT_AN_ARRAY;
@@ -2380,17 +2493,21 @@ static BACNET_ERROR_CODE BBMD_Foreign_Device_Table_Element_Write(
 bool Network_Port_Remote_BBMD_Address(
     uint32_t object_instance, BACNET_HOST_N_PORT *bbmd_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
             status = host_n_port_from_minimal(
-                bbmd_address, &Object_List[index].Network.IPv4.BBMD_Address);
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+                bbmd_address,
+                &Object_List[device_idx][index].Network.IPv4.BBMD_Address);
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             status = host_n_port_from_minimal(
-                bbmd_address, &Object_List[index].Network.IPv6.BBMD_Address);
+                bbmd_address,
+                &Object_List[device_idx][index].Network.IPv6.BBMD_Address);
         }
     }
 
@@ -2408,6 +2525,7 @@ bool Network_Port_Remote_BBMD_Address(
 bool Network_Port_Remote_BBMD_Address_Set(
     uint32_t object_instance, const BACNET_HOST_N_PORT *bbmd_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     BACNET_HOST_N_PORT_MINIMAL bbmd_address_minimal = { 0 };
     BACNET_HOST_N_PORT_MINIMAL *dest_bbmd_address = NULL;
@@ -2415,10 +2533,13 @@ bool Network_Port_Remote_BBMD_Address_Set(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            dest_bbmd_address = &Object_List[index].Network.IPv4.BBMD_Address;
-        } else if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            dest_bbmd_address = &Object_List[index].Network.IPv6.BBMD_Address;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            dest_bbmd_address =
+                &Object_List[device_idx][index].Network.IPv4.BBMD_Address;
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            dest_bbmd_address =
+                &Object_List[device_idx][index].Network.IPv6.BBMD_Address;
         }
         if (dest_bbmd_address) {
             status =
@@ -2427,7 +2548,7 @@ bool Network_Port_Remote_BBMD_Address_Set(
                 if (!host_n_port_minimal_same(
                         dest_bbmd_address, &bbmd_address_minimal)) {
                     host_n_port_to_minimal(dest_bbmd_address, bbmd_address);
-                    Object_List[index].Changes_Pending = true;
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
             }
         }
@@ -2452,14 +2573,15 @@ bool Network_Port_Remote_BBMD_Address_Set(
 bool Network_Port_Remote_BBMD_IP_Address(
     uint32_t object_instance, uint8_t *a, uint8_t *b, uint8_t *c, uint8_t *d)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     BACNET_HOST_N_PORT_MINIMAL *address;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            address = &Object_List[index].Network.IPv4.BBMD_Address;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            address = &Object_List[device_idx][index].Network.IPv4.BBMD_Address;
             if (address->tag == BACNET_HOST_ADDRESS_TAG_IP_ADDRESS) {
                 if (a) {
                     *a = address->host.ip_address.address[0];
@@ -2496,20 +2618,21 @@ bool Network_Port_Remote_BBMD_IP_Address(
 bool Network_Port_Remote_BBMD_IP_Address_Set(
     uint32_t object_instance, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     BACNET_HOST_N_PORT_MINIMAL *address;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            address = &Object_List[index].Network.IPv4.BBMD_Address;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            address = &Object_List[device_idx][index].Network.IPv4.BBMD_Address;
             if ((address->host.ip_address.address[0] != a) ||
                 (address->host.ip_address.address[1] != b) ||
                 (address->host.ip_address.address[2] != c) ||
                 (address->host.ip_address.address[3] != d) ||
                 (address->tag != BACNET_HOST_ADDRESS_TAG_IP_ADDRESS)) {
-                Object_List[index].Changes_Pending = true;
+                Object_List[device_idx][index].Changes_Pending = true;
             }
             address->host.ip_address.address[0] = a;
             address->host.ip_address.address[1] = b;
@@ -2534,13 +2657,15 @@ bool Network_Port_Remote_BBMD_IP_Address_Set(
  */
 uint16_t Network_Port_Remote_BBMD_BIP_Port(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            value = Object_List[index].Network.IPv4.BBMD_Address.port;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            value =
+                Object_List[device_idx][index].Network.IPv4.BBMD_Address.port;
         }
     }
 
@@ -2559,16 +2684,19 @@ uint16_t Network_Port_Remote_BBMD_BIP_Port(uint32_t object_instance)
 bool Network_Port_Remote_BBMD_BIP_Port_Set(
     uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            if (Object_List[index].Network.IPv4.BBMD_Address.port != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            if (Object_List[device_idx][index].Network.IPv4.BBMD_Address.port !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv4.BBMD_Address.port = value;
+            Object_List[device_idx][index].Network.IPv4.BBMD_Address.port =
+                value;
             status = true;
         }
     }
@@ -2586,13 +2714,14 @@ bool Network_Port_Remote_BBMD_BIP_Port_Set(
  */
 uint16_t Network_Port_Remote_BBMD_BIP_Lifetime(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            value = Object_List[index].Network.IPv4.BBMD_Lifetime;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            value = Object_List[device_idx][index].Network.IPv4.BBMD_Lifetime;
         }
     }
 
@@ -2611,16 +2740,18 @@ uint16_t Network_Port_Remote_BBMD_BIP_Lifetime(uint32_t object_instance)
 bool Network_Port_Remote_BBMD_BIP_Lifetime_Set(
     uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP) {
-            if (Object_List[index].Network.IPv4.BBMD_Lifetime != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP) {
+            if (Object_List[device_idx][index].Network.IPv4.BBMD_Lifetime !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv4.BBMD_Lifetime = value;
+            Object_List[device_idx][index].Network.IPv4.BBMD_Lifetime = value;
             status = true;
         }
     }
@@ -2635,17 +2766,20 @@ bool Network_Port_Remote_BBMD_BIP_Lifetime_Set(
  */
 static uint16_t Foreign_Device_Subscription_Lifetime(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_BIP:
-                value = Object_List[index].Network.IPv4.BBMD_Lifetime;
+                value =
+                    Object_List[device_idx][index].Network.IPv4.BBMD_Lifetime;
                 break;
             case PORT_TYPE_BIP6:
-                value = Object_List[index].Network.IPv6.BBMD_Lifetime;
+                value =
+                    Object_List[device_idx][index].Network.IPv6.BBMD_Lifetime;
                 break;
             default:
                 break;
@@ -2665,13 +2799,14 @@ static uint16_t Foreign_Device_Subscription_Lifetime(uint32_t object_instance)
  */
 bool Network_Port_BBMD_IP6_Accept_FD_Registrations(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool flag = false;
     unsigned index = 0;
     struct bacnet_ipv6_port *ipv6 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv6 = &Object_List[index].Network.IPv6;
+        ipv6 = &Object_List[device_idx][index].Network.IPv6;
         flag = ipv6->BBMD_Accept_FD_Registrations;
     }
 
@@ -2703,13 +2838,14 @@ bool Network_Port_BBMD_IP6_Accept_FD_Registrations_Set(
  */
 void *Network_Port_BBMD_IP6_BD_Table(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     void *bdt_head = NULL;
     unsigned index = 0;
     struct bacnet_ipv6_port *ipv6 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv6 = &Object_List[index].Network.IPv6;
+        ipv6 = &Object_List[device_idx][index].Network.IPv6;
         bdt_head = ipv6->BBMD_BD_Table;
     }
 
@@ -2729,16 +2865,17 @@ void *Network_Port_BBMD_IP6_BD_Table(uint32_t object_instance)
 bool Network_Port_BBMD_IP6_BD_Table_Set(
     uint32_t object_instance, void *bdt_head)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
     struct bacnet_ipv6_port *ipv6 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv6 = &Object_List[index].Network.IPv6;
+        ipv6 = &Object_List[device_idx][index].Network.IPv6;
         if (bdt_head != ipv6->BBMD_BD_Table) {
             ipv6->BBMD_BD_Table = bdt_head;
-            Object_List[index].Changes_Pending = true;
+            Object_List[device_idx][index].Changes_Pending = true;
         }
         status = true;
     }
@@ -2756,13 +2893,14 @@ bool Network_Port_BBMD_IP6_BD_Table_Set(
  */
 void *Network_Port_BBMD_IP6_FD_Table(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     void *fdt_head = NULL;
     unsigned index = 0;
     struct bacnet_ipv6_port *ipv6 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv6 = &Object_List[index].Network.IPv6;
+        ipv6 = &Object_List[device_idx][index].Network.IPv6;
         fdt_head = ipv6->BBMD_FD_Table;
     }
 
@@ -2781,16 +2919,17 @@ void *Network_Port_BBMD_IP6_FD_Table(uint32_t object_instance)
 bool Network_Port_BBMD_IP6_FD_Table_Set(
     uint32_t object_instance, void *fdt_head)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
     struct bacnet_ipv6_port *ipv6 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv6 = &Object_List[index].Network.IPv6;
+        ipv6 = &Object_List[device_idx][index].Network.IPv6;
         if (fdt_head != ipv6->BBMD_FD_Table) {
             ipv6->BBMD_FD_Table = fdt_head;
-            Object_List[index].Changes_Pending = true;
+            Object_List[device_idx][index].Changes_Pending = true;
         }
         status = true;
     }
@@ -2837,6 +2976,7 @@ static int Foreign_Device_BBMD_Address_Encode(
 bool Network_Port_Remote_BBMD_IP6_Address(
     uint32_t object_instance, uint8_t *addr)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     BACNET_HOST_N_PORT_MINIMAL *address;
@@ -2844,8 +2984,8 @@ bool Network_Port_Remote_BBMD_IP6_Address(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            address = &Object_List[index].Network.IPv6.BBMD_Address;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            address = &Object_List[device_idx][index].Network.IPv6.BBMD_Address;
             if (address->tag == BACNET_HOST_ADDRESS_TAG_IP_ADDRESS) {
                 if (addr) {
                     for (i = 0; i < IP6_ADDRESS_MAX; i++) {
@@ -2872,6 +3012,7 @@ bool Network_Port_Remote_BBMD_IP6_Address(
 bool Network_Port_Remote_BBMD_IP6_Address_Set(
     uint32_t object_instance, const uint8_t *addr)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     BACNET_HOST_N_PORT_MINIMAL bbmd_address = { 0 };
@@ -2879,17 +3020,19 @@ bool Network_Port_Remote_BBMD_IP6_Address_Set(
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            port = Object_List[index].Network.IPv6.BBMD_Address.port;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            port =
+                Object_List[device_idx][index].Network.IPv6.BBMD_Address.port;
             host_n_port_minimal_ip_init(
                 &bbmd_address, port, addr, IP6_ADDRESS_MAX);
             if (!host_n_port_minimal_same(
-                    &Object_List[index].Network.IPv6.BBMD_Address,
+                    &Object_List[device_idx][index].Network.IPv6.BBMD_Address,
                     &bbmd_address)) {
-                Object_List[index].Changes_Pending = true;
+                Object_List[device_idx][index].Changes_Pending = true;
             }
             status = host_n_port_minimal_copy(
-                &Object_List[index].Network.IPv6.BBMD_Address, &bbmd_address);
+                &Object_List[device_idx][index].Network.IPv6.BBMD_Address,
+                &bbmd_address);
         }
     }
 
@@ -2906,13 +3049,15 @@ bool Network_Port_Remote_BBMD_IP6_Address_Set(
  */
 uint16_t Network_Port_Remote_BBMD_BIP6_Port(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            value = Object_List[index].Network.IPv6.BBMD_Address.port;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            value =
+                Object_List[device_idx][index].Network.IPv6.BBMD_Address.port;
         }
     }
 
@@ -2931,16 +3076,19 @@ uint16_t Network_Port_Remote_BBMD_BIP6_Port(uint32_t object_instance)
 bool Network_Port_Remote_BBMD_BIP6_Port_Set(
     uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            if (Object_List[index].Network.IPv6.BBMD_Address.port != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            if (Object_List[device_idx][index].Network.IPv6.BBMD_Address.port !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv6.BBMD_Address.port = value;
+            Object_List[device_idx][index].Network.IPv6.BBMD_Address.port =
+                value;
             status = true;
         }
     }
@@ -2958,13 +3106,14 @@ bool Network_Port_Remote_BBMD_BIP6_Port_Set(
  */
 uint16_t Network_Port_Remote_BBMD_BIP6_Lifetime(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint16_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            value = Object_List[index].Network.IPv6.BBMD_Lifetime;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            value = Object_List[device_idx][index].Network.IPv6.BBMD_Lifetime;
         }
     }
 
@@ -2983,16 +3132,18 @@ uint16_t Network_Port_Remote_BBMD_BIP6_Lifetime(uint32_t object_instance)
 bool Network_Port_Remote_BBMD_BIP6_Lifetime_Set(
     uint32_t object_instance, uint16_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            if (Object_List[index].Network.IPv6.BBMD_Lifetime != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            if (Object_List[device_idx][index].Network.IPv6.BBMD_Lifetime !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv6.BBMD_Lifetime = value;
+            Object_List[device_idx][index].Network.IPv6.BBMD_Lifetime = value;
             status = true;
         }
     }
@@ -3010,13 +3161,14 @@ bool Network_Port_Remote_BBMD_BIP6_Lifetime_Set(
  */
 BACNET_IP_MODE Network_Port_BIP6_Mode(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_IP_MODE value = BACNET_IP_MODE_NORMAL;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            value = Object_List[index].Network.IPv6.Mode;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            value = Object_List[device_idx][index].Network.IPv6.Mode;
         }
     }
 
@@ -3034,16 +3186,17 @@ BACNET_IP_MODE Network_Port_BIP6_Mode(uint32_t object_instance)
  */
 bool Network_Port_BIP6_Mode_Set(uint32_t object_instance, BACNET_IP_MODE value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            if (Object_List[index].Network.IPv4.Mode != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            if (Object_List[device_idx][index].Network.IPv4.Mode != value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv6.Mode = value;
+            Object_List[device_idx][index].Network.IPv6.Mode = value;
             status = true;
         }
     }
@@ -3064,14 +3217,16 @@ bool Network_Port_BIP6_Mode_Set(uint32_t object_instance, BACNET_IP_MODE value)
 bool Network_Port_IPv6_Address(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             status = octetstring_init(
-                ip_address, &Object_List[index].Network.IPv6.IP_Address[0],
+                ip_address,
+                &Object_List[device_idx][index].Network.IPv6.IP_Address[0],
                 IPV6_ADDR_SIZE);
         }
     }
@@ -3091,16 +3246,18 @@ bool Network_Port_IPv6_Address(
 bool Network_Port_IPv6_Address_Set(
     uint32_t object_instance, const uint8_t *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     unsigned i = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if ((Object_List[index].Network_Type == PORT_TYPE_BIP6) &&
+        if ((Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) &&
             (ip_address)) {
             for (i = 0; i < IPV6_ADDR_SIZE; i++) {
-                Object_List[index].Network.IPv6.IP_Address[i] = ip_address[i];
+                Object_List[device_idx][index].Network.IPv6.IP_Address[i] =
+                    ip_address[i];
             }
             status = true;
         }
@@ -3120,13 +3277,15 @@ bool Network_Port_IPv6_Address_Set(
  */
 uint8_t Network_Port_IPv6_Subnet_Prefix(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint8_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            value = Object_List[index].Network.IPv6.IP_Subnet_Prefix;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            value =
+                Object_List[device_idx][index].Network.IPv6.IP_Subnet_Prefix;
         }
     }
 
@@ -3146,17 +3305,20 @@ uint8_t Network_Port_IPv6_Subnet_Prefix(uint32_t object_instance)
 bool Network_Port_IPv6_Subnet_Prefix_Set(
     uint32_t object_instance, uint8_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             if ((value > 0) && (value <= 128)) {
-                if (Object_List[index].Network.IPv6.IP_Subnet_Prefix != value) {
-                    Object_List[index].Changes_Pending = true;
+                if (Object_List[device_idx][index]
+                        .Network.IPv6.IP_Subnet_Prefix != value) {
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.IPv6.IP_Subnet_Prefix = value;
+                Object_List[device_idx][index].Network.IPv6.IP_Subnet_Prefix =
+                    value;
                 status = true;
             }
         }
@@ -3178,14 +3340,16 @@ bool Network_Port_IPv6_Subnet_Prefix_Set(
 bool Network_Port_IPv6_Gateway(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             status = octetstring_init(
-                ip_address, &Object_List[index].Network.IPv6.IP_Gateway[0],
+                ip_address,
+                &Object_List[device_idx][index].Network.IPv6.IP_Gateway[0],
                 IPV6_ADDR_SIZE);
         }
     }
@@ -3205,16 +3369,18 @@ bool Network_Port_IPv6_Gateway(
 bool Network_Port_IPv6_Gateway_Set(
     uint32_t object_instance, const uint8_t *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     unsigned i = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if ((Object_List[index].Network_Type == PORT_TYPE_BIP6) &&
+        if ((Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) &&
             (ip_address)) {
             for (i = 0; i < IPV6_ADDR_SIZE; i++) {
-                Object_List[index].Network.IPv6.IP_Gateway[i] = ip_address[i];
+                Object_List[device_idx][index].Network.IPv6.IP_Gateway[i] =
+                    ip_address[i];
             }
             status = true;
         }
@@ -3239,16 +3405,17 @@ bool Network_Port_IPv6_DNS_Server(
     unsigned dns_index,
     BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             if (dns_index < BIP_DNS_MAX) {
                 status = octetstring_init(
                     ip_address,
-                    &Object_List[index]
+                    &Object_List[device_idx][index]
                          .Network.IPv6.IP_DNS_Server[dns_index][0],
                     IPV6_ADDR_SIZE);
             }
@@ -3298,17 +3465,18 @@ static int Network_Port_IPv6_DNS_Server_Encode(
 bool Network_Port_IPv6_DNS_Server_Set(
     uint32_t object_instance, unsigned dns_index, const uint8_t *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     unsigned i = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if ((Object_List[index].Network_Type == PORT_TYPE_BIP6) &&
+        if ((Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) &&
             (dns_index < BIP_DNS_MAX) && (ip_address)) {
             for (i = 0; i < IPV6_ADDR_SIZE; i++) {
-                Object_List[index].Network.IPv6.IP_DNS_Server[dns_index][i] =
-                    ip_address[i];
+                Object_List[device_idx][index]
+                    .Network.IPv6.IP_DNS_Server[dns_index][i] = ip_address[i];
             }
             status = true;
         }
@@ -3330,15 +3498,17 @@ bool Network_Port_IPv6_DNS_Server_Set(
 bool Network_Port_IPv6_Multicast_Address(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             status = octetstring_init(
                 ip_address,
-                &Object_List[index].Network.IPv6.IP_Multicast_Address[0],
+                &Object_List[device_idx][index]
+                     .Network.IPv6.IP_Multicast_Address[0],
                 IPV6_ADDR_SIZE);
         }
     }
@@ -3358,17 +3528,18 @@ bool Network_Port_IPv6_Multicast_Address(
 bool Network_Port_IPv6_Multicast_Address_Set(
     uint32_t object_instance, const uint8_t *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     unsigned i = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if ((Object_List[index].Network_Type == PORT_TYPE_BIP6) &&
+        if ((Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) &&
             (ip_address)) {
             for (i = 0; i < IPV6_ADDR_SIZE; i++) {
-                Object_List[index].Network.IPv6.IP_Multicast_Address[i] =
-                    ip_address[i];
+                Object_List[device_idx][index]
+                    .Network.IPv6.IP_Multicast_Address[i] = ip_address[i];
             }
             status = true;
         }
@@ -3390,14 +3561,16 @@ bool Network_Port_IPv6_Multicast_Address_Set(
 bool Network_Port_IPv6_DHCP_Server(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             status = octetstring_init(
-                ip_address, &Object_List[index].Network.IPv6.IP_DHCP_Server[0],
+                ip_address,
+                &Object_List[device_idx][index].Network.IPv6.IP_DHCP_Server[0],
                 IPV6_ADDR_SIZE);
         }
     }
@@ -3417,16 +3590,17 @@ bool Network_Port_IPv6_DHCP_Server(
 bool Network_Port_IPv6_DHCP_Server_Set(
     uint32_t object_instance, const uint8_t *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
     unsigned i = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if ((Object_List[index].Network_Type == PORT_TYPE_BIP6) &&
+        if ((Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) &&
             (ip_address)) {
             for (i = 0; i < IPV6_ADDR_SIZE; i++) {
-                Object_List[index].Network.IPv6.IP_DHCP_Server[i] =
+                Object_List[device_idx][index].Network.IPv6.IP_DHCP_Server[i] =
                     ip_address[i];
             }
             status = true;
@@ -3464,28 +3638,33 @@ bool Network_Port_IP_DHCP_Lease_Time_Set(
     uint32_t object_instance, const uint32_t value)
 {
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_BIP:
-                if (Object_List[index].Network.IPv4.IP_DHCP_Lease_Seconds !=
-                    value) {
-                    Object_List[index].Changes_Pending = true;
+                if (Object_List[device_idx][index]
+                        .Network.IPv4.IP_DHCP_Lease_Seconds != value) {
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.IPv4.IP_DHCP_Lease_Seconds = value;
-                Object_List[index].Network.IPv4.IP_DHCP_Lease_Seconds_Start =
+                Object_List[device_idx][index]
+                    .Network.IPv4.IP_DHCP_Lease_Seconds = value;
+                Object_List[device_idx][index]
+                    .Network.IPv4.IP_DHCP_Lease_Seconds_Start =
                     Network_Port_Epoch_Seconds_Now();
                 status = true;
                 break;
             case PORT_TYPE_BIP6:
-                if (Object_List[index].Network.IPv6.IP_DHCP_Lease_Seconds !=
-                    value) {
-                    Object_List[index].Changes_Pending = true;
+                if (Object_List[device_idx][index]
+                        .Network.IPv6.IP_DHCP_Lease_Seconds != value) {
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
-                Object_List[index].Network.IPv6.IP_DHCP_Lease_Seconds = value;
-                Object_List[index].Network.IPv6.IP_DHCP_Lease_Seconds_Start =
+                Object_List[device_idx][index]
+                    .Network.IPv6.IP_DHCP_Lease_Seconds = value;
+                Object_List[device_idx][index]
+                    .Network.IPv6.IP_DHCP_Lease_Seconds_Start =
                     Network_Port_Epoch_Seconds_Now();
                 status = true;
                 break;
@@ -3505,16 +3684,19 @@ bool Network_Port_IP_DHCP_Lease_Time_Set(
 uint32_t Network_Port_IP_DHCP_Lease_Time(uint32_t object_instance)
 {
     uint16_t value = 0;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_BIP:
-                value = Object_List[index].Network.IPv4.IP_DHCP_Lease_Seconds;
+                value = Object_List[device_idx][index]
+                            .Network.IPv4.IP_DHCP_Lease_Seconds;
                 break;
             case PORT_TYPE_BIP6:
-                value = Object_List[index].Network.IPv6.IP_DHCP_Lease_Seconds;
+                value = Object_List[device_idx][index]
+                            .Network.IPv6.IP_DHCP_Lease_Seconds;
                 break;
             default:
                 break;
@@ -3532,16 +3714,18 @@ uint32_t Network_Port_IP_DHCP_Lease_Time(uint32_t object_instance)
 uint32_t Network_Port_IP_DHCP_Lease_Time_Remaining(uint32_t object_instance)
 {
     uint32_t value = 0, elapsed_seconds = 0, seconds = 0, start_seconds = 0;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_BIP:
-                seconds = Object_List[index].Network.IPv4.IP_DHCP_Lease_Seconds;
+                seconds = Object_List[device_idx][index]
+                              .Network.IPv4.IP_DHCP_Lease_Seconds;
                 if (seconds) {
                     start_seconds =
-                        Object_List[index]
+                        Object_List[device_idx][index]
                             .Network.IPv4.IP_DHCP_Lease_Seconds_Start;
                     elapsed_seconds =
                         Network_Port_Epoch_Seconds_Now() - start_seconds;
@@ -3551,10 +3735,11 @@ uint32_t Network_Port_IP_DHCP_Lease_Time_Remaining(uint32_t object_instance)
                 }
                 break;
             case PORT_TYPE_BIP6:
-                seconds = Object_List[index].Network.IPv6.IP_DHCP_Lease_Seconds;
+                seconds = Object_List[device_idx][index]
+                              .Network.IPv6.IP_DHCP_Lease_Seconds;
                 if (seconds) {
                     start_seconds =
-                        Object_List[index]
+                        Object_List[device_idx][index]
                             .Network.IPv6.IP_DHCP_Lease_Seconds_Start;
                     elapsed_seconds =
                         Network_Port_Epoch_Seconds_Now() - start_seconds;
@@ -3581,21 +3766,24 @@ uint32_t Network_Port_IP_DHCP_Lease_Time_Remaining(uint32_t object_instance)
 void Network_Port_IP_DHCP_Server(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_BIP:
                 octetstring_init(
                     ip_address,
-                    &Object_List[index].Network.IPv4.IP_DHCP_Server[0],
+                    &Object_List[device_idx][index]
+                         .Network.IPv4.IP_DHCP_Server[0],
                     IPV4_ADDR_SIZE);
                 break;
             case PORT_TYPE_BIP6:
                 octetstring_init(
                     ip_address,
-                    &Object_List[index].Network.IPv6.IP_DHCP_Server[0],
+                    &Object_List[device_idx][index]
+                         .Network.IPv6.IP_DHCP_Server[0],
                     IPV6_ADDR_SIZE);
                 break;
             default:
@@ -3615,36 +3803,41 @@ bool Network_Port_IP_DHCP_Server_Set(
     uint32_t object_instance, BACNET_OCTET_STRING *ip_address)
 {
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     BACNET_OCTET_STRING my_address = { 0 };
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        switch (Object_List[index].Network_Type) {
+        switch (Object_List[device_idx][index].Network_Type) {
             case PORT_TYPE_BIP:
                 /* check for changes */
                 octetstring_init(
                     &my_address,
-                    &Object_List[index].Network.IPv4.IP_DHCP_Server[0],
+                    &Object_List[device_idx][index]
+                         .Network.IPv4.IP_DHCP_Server[0],
                     IPV4_ADDR_SIZE);
                 if (!octetstring_value_same(&my_address, ip_address)) {
-                    Object_List[index].Changes_Pending = true;
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
                 octetstring_copy_value(
-                    &Object_List[index].Network.IPv4.IP_DHCP_Server[0],
+                    &Object_List[device_idx][index]
+                         .Network.IPv4.IP_DHCP_Server[0],
                     IPV4_ADDR_SIZE, ip_address);
                 status = true;
                 break;
             case PORT_TYPE_BIP6:
                 octetstring_init(
                     &my_address,
-                    &Object_List[index].Network.IPv6.IP_DHCP_Server[0],
+                    &Object_List[device_idx][index]
+                         .Network.IPv6.IP_DHCP_Server[0],
                     IPV6_ADDR_SIZE);
                 if (!octetstring_value_same(&my_address, ip_address)) {
-                    Object_List[index].Changes_Pending = true;
+                    Object_List[device_idx][index].Changes_Pending = true;
                 }
                 octetstring_copy_value(
-                    &Object_List[index].Network.IPv6.IP_DHCP_Server[0],
+                    &Object_List[device_idx][index]
+                         .Network.IPv6.IP_DHCP_Server[0],
                     IPV6_ADDR_SIZE, ip_address);
                 status = true;
                 break;
@@ -3667,12 +3860,13 @@ bool Network_Port_IP_DHCP_Server_Set(
 uint16_t Network_Port_BIP6_Port(uint32_t object_instance)
 {
     uint16_t value = 0;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            value = Object_List[index].Network.IPv6.Port;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            value = Object_List[device_idx][index].Network.IPv6.Port;
         }
     }
 
@@ -3691,15 +3885,16 @@ uint16_t Network_Port_BIP6_Port(uint32_t object_instance)
 bool Network_Port_BIP6_Port_Set(uint32_t object_instance, uint16_t value)
 {
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            if (Object_List[index].Network.IPv6.Port != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            if (Object_List[device_idx][index].Network.IPv6.Port != value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv6.Port = value;
+            Object_List[device_idx][index].Network.IPv6.Port = value;
             status = true;
         }
     }
@@ -3720,14 +3915,16 @@ bool Network_Port_BIP6_Port_Set(uint32_t object_instance, uint16_t value)
 bool Network_Port_IPv6_Zone_Index(
     uint32_t object_instance, BACNET_CHARACTER_STRING *zone_index)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             status = characterstring_init_ansi(
-                zone_index, &Object_List[index].Network.IPv6.Zone_Index[0]);
+                zone_index,
+                &Object_List[device_idx][index].Network.IPv6.Zone_Index[0]);
         }
     }
 
@@ -3745,12 +3942,13 @@ bool Network_Port_IPv6_Zone_Index(
 const char *Network_Port_IPv6_Zone_Index_ASCII(uint32_t object_instance)
 {
     const char *p = NULL;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            p = &Object_List[index].Network.IPv6.Zone_Index[0];
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            p = &Object_List[device_idx][index].Network.IPv6.Zone_Index[0];
         }
     }
 
@@ -3768,12 +3966,13 @@ const char *Network_Port_IPv6_Zone_Index_ASCII(uint32_t object_instance)
 bool Network_Port_IPv6_Auto_Addressing_Enable(uint32_t object_instance)
 {
     bool flag = false;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     struct bacnet_ipv6_port *ipv6 = NULL;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        ipv6 = &Object_List[index].Network.IPv6;
+        ipv6 = &Object_List[device_idx][index].Network.IPv6;
         flag = ipv6->IP_DHCP_Enable;
     }
 
@@ -3794,15 +3993,17 @@ bool Network_Port_IPv6_Auto_Addressing_Enable_Set(
     uint32_t object_instance, bool value)
 {
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
-            if (Object_List[index].Network.IPv6.IP_DHCP_Enable != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
+            if (Object_List[device_idx][index].Network.IPv6.IP_DHCP_Enable !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.IPv6.IP_DHCP_Enable = value;
+            Object_List[device_idx][index].Network.IPv6.IP_DHCP_Enable = value;
             status = true;
         }
     }
@@ -3822,16 +4023,17 @@ bool Network_Port_IPv6_Auto_Addressing_Enable_Set(
 bool Network_Port_IPv6_Gateway_Zone_Index_Set(
     uint32_t object_instance, char *zone_index)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0; /* offset from instance lookup */
     bool status = false;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if ((Object_List[index].Network_Type == PORT_TYPE_BIP6) &&
+        if ((Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) &&
             (zone_index)) {
             snprintf(
-                &Object_List[index].Network.IPv6.Zone_Index[0], ZONE_INDEX_SIZE,
-                "%s", zone_index);
+                &Object_List[device_idx][index].Network.IPv6.Zone_Index[0],
+                ZONE_INDEX_SIZE, "%s", zone_index);
             status = true;
         }
     }
@@ -3985,13 +4187,14 @@ static bool Network_Port_FD_Subscription_Lifetime_Write(
  */
 uint8_t Network_Port_MSTP_Max_Info_Frames(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint8_t value = 0;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_MSTP) {
-            value = Object_List[index].Network.MSTP.Max_Info_Frames;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_MSTP) {
+            value = Object_List[device_idx][index].Network.MSTP.Max_Info_Frames;
         }
     }
 
@@ -4010,16 +4213,18 @@ uint8_t Network_Port_MSTP_Max_Info_Frames(uint32_t object_instance)
 bool Network_Port_MSTP_Max_Info_Frames_Set(
     uint32_t object_instance, uint8_t value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_MSTP) {
-            if (Object_List[index].Network.MSTP.Max_Info_Frames != value) {
-                Object_List[index].Changes_Pending = true;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_MSTP) {
+            if (Object_List[device_idx][index].Network.MSTP.Max_Info_Frames !=
+                value) {
+                Object_List[device_idx][index].Changes_Pending = true;
             }
-            Object_List[index].Network.MSTP.Max_Info_Frames = value;
+            Object_List[device_idx][index].Network.MSTP.Max_Info_Frames = value;
             status = true;
         }
     }
@@ -4039,6 +4244,7 @@ bool Network_Port_MSTP_Max_Info_Frames_Set(
 static int Network_Port_Virtual_MAC_Table_Encode(
     uint32_t object_instance, uint8_t *apdu, int max_apdu)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = 0;
     unsigned index = 0;
 
@@ -4046,9 +4252,10 @@ static int Network_Port_Virtual_MAC_Table_Encode(
     (void)max_apdu;
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BIP6) {
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BIP6) {
             /* fixme: add abstraction to get the BACnetLIST */
-        } else if (Object_List[index].Network_Type == PORT_TYPE_ZIGBEE) {
+        } else if (
+            Object_List[device_idx][index].Network_Type == PORT_TYPE_ZIGBEE) {
             /* fixme: add abstraction to get the BACnetLIST */
         }
     }
@@ -4796,12 +5003,13 @@ bool Network_Port_Read_Range(
  */
 void Network_Port_Changes_Activate(void)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned i = 0;
 
     for (i = 0; i < BACNET_NETWORK_PORTS_MAX; i++) {
-        if (Object_List[i].Changes_Pending) {
+        if (Object_List[device_idx][i].Changes_Pending) {
             Network_Port_Changes_Pending_Activate(i);
-            Object_List[i].Changes_Pending = false;
+            Object_List[device_idx][i].Changes_Pending = false;
         }
     }
 }
@@ -4811,13 +5019,14 @@ void Network_Port_Changes_Activate(void)
  */
 void Network_Port_Changes_Discard(void)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned i = 0;
 
     for (i = 0; i < BACNET_NETWORK_PORTS_MAX; i++) {
-        if (Object_List[i].Changes_Pending) {
+        if (Object_List[device_idx][i].Changes_Pending) {
             Network_Port_Changes_Pending_Discard(
-                Object_List[i].Instance_Number);
-            Object_List[i].Changes_Pending = false;
+                Object_List[device_idx][i].Instance_Number);
+            Object_List[device_idx][i].Changes_Pending = false;
         }
     }
 }
@@ -4829,11 +5038,14 @@ void Network_Port_Cleanup(void)
 {
 #if defined(BACDL_BSC) && defined(BACNET_SECURE_CONNECT_ROUTING_TABLE)
     unsigned index = 0;
-    for (index = 0; index < BACNET_NETWORK_PORTS_MAX; index++) {
-        BACNET_SC_PARAMS *sc = &Object_List[index].Network.BSC.Parameters;
-        if (sc->Routing_Table) {
-            Keylist_Delete(sc->Routing_Table);
-            sc->Routing_Table = NULL;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        for (index = 0; index < BACNET_NETWORK_PORTS_MAX; index++) {
+            BACNET_SC_PARAMS *sc =
+                &Object_List[device_idx][index].Network.BSC.Parameters;
+            if (sc->Routing_Table) {
+                Keylist_Delete(sc->Routing_Table);
+                sc->Routing_Table = NULL;
+            }
         }
     }
 #endif
@@ -4846,11 +5058,12 @@ void Network_Port_Cleanup(void)
  */
 void *Network_Port_Context_Get(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        return Object_List[index].Context;
+        return Object_List[device_idx][index].Context;
     }
 
     return NULL;
@@ -4863,11 +5076,12 @@ void *Network_Port_Context_Get(uint32_t object_instance)
  */
 void Network_Port_Context_Set(uint32_t object_instance, void *context)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        Object_List[index].Context = context;
+        Object_List[device_idx][index].Context = context;
     }
 }
 
@@ -4883,28 +5097,31 @@ void Network_Port_Init(void)
 #endif /* BACDL_BSC */
 
     /* do something interesting */
-
-    for (index = 0; index < BACNET_NETWORK_PORTS_MAX; index++) {
-        memset(&Object_List[index], 0, sizeof(Object_List[index]));
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        for (index = 0; index < BACNET_NETWORK_PORTS_MAX; index++) {
+            memset(
+                &Object_List[device_idx][index], 0,
+                sizeof(Object_List[device_idx][index]));
 #ifdef BACDL_BSC
-        Object_List[index].Network_Type = PORT_TYPE_BSC;
-        sc = &Object_List[index].Network.BSC.Parameters;
-        Object_List[index].Activate_Changes =
-            Network_Port_SC_Pending_Params_Apply;
-        Object_List[index].Discard_Changes =
-            Network_Port_SC_Pending_Params_Discard;
+            Object_List[device_idx][index].Network_Type = PORT_TYPE_BSC;
+            sc = &Object_List[device_idx][index].Network.BSC.Parameters;
+            Object_List[device_idx][index].Activate_Changes =
+                Network_Port_SC_Pending_Params_Apply;
+            Object_List[device_idx][index].Discard_Changes =
+                Network_Port_SC_Pending_Params_Discard;
 #ifdef BACNET_SECURE_CONNECT_ROUTING_TABLE
-        sc->Routing_Table = Keylist_Create();
+            sc->Routing_Table = Keylist_Create();
 #endif
-        sc->SC_Failed_Connection_Requests_Count = 0;
+            sc->SC_Failed_Connection_Requests_Count = 0;
 #if BSC_CONF_HUB_FUNCTIONS_NUM != 0
-        sc->SC_Hub_Function_Connection_Status_Count = 0;
+            sc->SC_Hub_Function_Connection_Status_Count = 0;
 #endif
 #if BSC_CONF_HUB_CONNECTORS_NUM != 0
-        sc->SC_Direct_Connect_Connection_Status_Count = 0;
+            sc->SC_Direct_Connect_Connection_Status_Count = 0;
 #endif
-        (void)sc;
+            (void)sc;
 #endif /* BACDL_BSC */
+        }
     }
 }
 
@@ -4918,13 +5135,14 @@ void Network_Port_Init(void)
  */
 BACNET_SC_PARAMS *Network_Port_SC_Params(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_SC_PARAMS *param = NULL;
     unsigned index = 0;
 
     index = Network_Port_Instance_To_Index(object_instance);
     if (index < BACNET_NETWORK_PORTS_MAX) {
-        if (Object_List[index].Network_Type == PORT_TYPE_BSC) {
-            param = &Object_List[index].Network.BSC.Parameters;
+        if (Object_List[device_idx][index].Network_Type == PORT_TYPE_BSC) {
+            param = &Object_List[device_idx][index].Network.BSC.Parameters;
         }
     }
 

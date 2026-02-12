@@ -26,6 +26,7 @@
 #if defined(CHANNEL_LIGHTING_COMMAND) || defined(CHANNEL_COLOR_COMMAND)
 #include "bacnet/lighting.h"
 #endif
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/channel.h"
 
@@ -51,8 +52,9 @@ struct object_data {
 };
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* Internal write property callback */
+
 static write_property_function Write_Property_Internal_Callback;
 /* Write Property notification callbacks for logging or other purposes */
 static struct channel_write_property_notification
@@ -143,7 +145,8 @@ void Channel_Writable_Property_List(
  */
 struct object_data *Object_Data(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -172,7 +175,8 @@ bool Channel_Valid_Instance(uint32_t object_instance)
  */
 unsigned Channel_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -187,7 +191,8 @@ uint32_t Channel_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -203,7 +208,8 @@ uint32_t Channel_Index_To_Instance(unsigned index)
  */
 unsigned Channel_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -1359,9 +1365,10 @@ void Channel_Write_Group(
        a) matching group number, and
        b) matching channel number
        Then write the value to the channel */
-    count = Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    count = Keylist_Count(Object_List[device_idx]);
     for (index = 0; index < count; index++) {
-        pObject = Keylist_Data_Index(Object_List, index);
+        pObject = Keylist_Data_Index(Object_List[device_idx], index);
         if (!pObject) {
             continue;
         }
@@ -1457,7 +1464,8 @@ void *Channel_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1474,7 +1482,8 @@ void Channel_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1491,8 +1500,10 @@ uint32_t Channel_Create(uint32_t object_instance)
     int index = 0;
     unsigned m, g;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1502,7 +1513,7 @@ uint32_t Channel_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
 
     pObject = Object_Data(object_instance);
@@ -1523,7 +1534,7 @@ uint32_t Channel_Create(uint32_t object_instance)
                 pObject->Control_Groups[g] = 0;
             }
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1546,7 +1557,9 @@ bool Channel_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1562,15 +1575,17 @@ void Channel_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
         do {
-            pObject = Keylist_Data_Pop(Object_List);
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
             if (pObject) {
                 free(pObject);
             }
         } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1579,7 +1594,10 @@ void Channel_Cleanup(void)
  */
 void Channel_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
     }
 }
+}
+

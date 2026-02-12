@@ -18,10 +18,12 @@
 #include "bacnet/proplist.h"
 #include "bacnet/basic/object/access_credential.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 
 static bool Access_Credential_Initialized = false;
 
-static ACCESS_CREDENTIAL_DESCR ac_descr[MAX_ACCESS_CREDENTIALS];
+static ACCESS_CREDENTIAL_DESCR ac_descr[MAX_NUM_DEVICES]
+                                       [MAX_ACCESS_CREDENTIALS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -94,17 +96,25 @@ void Access_Credential_Init(void)
     if (!Access_Credential_Initialized) {
         Access_Credential_Initialized = true;
 
-        for (i = 0; i < MAX_ACCESS_CREDENTIALS; i++) {
-            ac_descr[i].global_identifier =
-                0; /* set to some meaningful value */
-            ac_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            ac_descr[i].credential_status = false;
-            ac_descr[i].reasons_count = 0;
-            ac_descr[i].auth_factors_count = 0;
-            memset(&ac_descr[i].activation_time, 0, sizeof(BACNET_DATE_TIME));
-            memset(&ac_descr[i].expiration_time, 0, sizeof(BACNET_DATE_TIME));
-            ac_descr[i].credential_disable = ACCESS_CREDENTIAL_DISABLE_NONE;
-            ac_descr[i].assigned_access_rights_count = 0;
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            for (i = 0; i < MAX_ACCESS_CREDENTIALS; i++) {
+                ac_descr[device_idx][i].global_identifier =
+                    0; /* set to some meaningful value */
+                ac_descr[device_idx][i].reliability =
+                    RELIABILITY_NO_FAULT_DETECTED;
+                ac_descr[device_idx][i].credential_status = false;
+                ac_descr[device_idx][i].reasons_count = 0;
+                ac_descr[device_idx][i].auth_factors_count = 0;
+                memset(
+                    &ac_descr[device_idx][i].activation_time, 0,
+                    sizeof(BACNET_DATE_TIME));
+                memset(
+                    &ac_descr[device_idx][i].expiration_time, 0,
+                    sizeof(BACNET_DATE_TIME));
+                ac_descr[device_idx][i].credential_disable =
+                    ACCESS_CREDENTIAL_DISABLE_NONE;
+                ac_descr[device_idx][i].assigned_access_rights_count = 0;
+            }
         }
     }
 
@@ -185,9 +195,11 @@ static int Access_Credential_Authentication_Factor_Array_Encode(
     int apdu_len = BACNET_STATUS_ERROR;
 
     if (object_instance < MAX_ACCESS_CREDENTIALS) {
-        if (index < ac_descr[object_instance].auth_factors_count) {
+        const int device_idx = Routed_Device_Object_Index();
+        if (index < ac_descr[device_idx][object_instance].auth_factors_count) {
             apdu_len = bacapp_encode_credential_authentication_factor(
-                apdu, &ac_descr[object_instance].auth_factors[index]);
+                apdu,
+                &ac_descr[device_idx][object_instance].auth_factors[index]);
         }
     }
 
@@ -210,9 +222,13 @@ static int Access_Credential_Assigned_Access_Rights_Array_Encode(
     int apdu_len = BACNET_STATUS_ERROR;
 
     if (object_instance < MAX_ACCESS_CREDENTIALS) {
-        if (index < ac_descr[object_instance].assigned_access_rights_count) {
+        const int device_idx = Routed_Device_Object_Index();
+        if (index < ac_descr[device_idx][object_instance]
+                        .assigned_access_rights_count) {
             apdu_len = bacapp_encode_assigned_access_rights(
-                apdu, &ac_descr[object_instance].assigned_access_rights[index]);
+                apdu,
+                &ac_descr[device_idx][object_instance]
+                     .assigned_access_rights[index]);
         }
     }
 
@@ -230,6 +246,7 @@ int Access_Credential_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
     unsigned object_index = 0;
     unsigned i = 0;
     uint8_t *apdu = NULL;
+    const int device_idx = Routed_Device_Object_Index();
 
     if ((rpdata == NULL) || (rpdata->application_data == NULL) ||
         (rpdata->application_data_len == 0)) {
@@ -255,7 +272,7 @@ int Access_Credential_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_GLOBAL_IDENTIFIER:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ac_descr[object_index].global_identifier);
+                &apdu[0], ac_descr[device_idx][object_index].global_identifier);
             break;
         case PROP_STATUS_FLAGS:
             bitstring_init(&bit_string);
@@ -267,16 +284,18 @@ int Access_Credential_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ac_descr[object_index].reliability);
+                &apdu[0], ac_descr[device_idx][object_index].reliability);
             break;
         case PROP_CREDENTIAL_STATUS:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ac_descr[object_index].credential_status);
+                &apdu[0], ac_descr[device_idx][object_index].credential_status);
             break;
         case PROP_REASON_FOR_DISABLE:
-            for (i = 0; i < ac_descr[object_index].reasons_count; i++) {
+            for (i = 0; i < ac_descr[device_idx][object_index].reasons_count;
+                 i++) {
                 len = encode_application_enumerated(
-                    &apdu[0], ac_descr[object_index].reason_for_disable[i]);
+                    &apdu[0],
+                    ac_descr[device_idx][object_index].reason_for_disable[i]);
                 if (apdu_len + len < MAX_APDU) {
                     apdu_len += len;
                 } else {
@@ -291,7 +310,8 @@ int Access_Credential_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             apdu_len = bacnet_array_encode(
                 rpdata->object_instance, rpdata->array_index,
                 Access_Credential_Authentication_Factor_Array_Encode,
-                ac_descr[object_index].auth_factors_count, apdu, apdu_size);
+                ac_descr[device_idx][object_index].auth_factors_count, apdu,
+                apdu_size);
             if (apdu_len == BACNET_STATUS_ABORT) {
                 rpdata->error_code =
                     ERROR_CODE_ABORT_SEGMENTATION_NOT_SUPPORTED;
@@ -302,22 +322,23 @@ int Access_Credential_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_ACTIVATION_TIME:
             apdu_len = bacapp_encode_datetime(
-                &apdu[0], &ac_descr[object_index].activation_time);
+                &apdu[0], &ac_descr[device_idx][object_index].activation_time);
             break;
         case PROP_EXPIRATION_TIME:
             apdu_len = bacapp_encode_datetime(
-                &apdu[0], &ac_descr[object_index].expiration_time);
+                &apdu[0], &ac_descr[device_idx][object_index].expiration_time);
             break;
         case PROP_CREDENTIAL_DISABLE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ac_descr[object_index].credential_disable);
+                &apdu[0],
+                ac_descr[device_idx][object_index].credential_disable);
             break;
         case PROP_ASSIGNED_ACCESS_RIGHTS:
             apdu_len = bacnet_array_encode(
                 rpdata->object_instance, rpdata->array_index,
                 Access_Credential_Assigned_Access_Rights_Array_Encode,
-                ac_descr[object_index].assigned_access_rights_count, apdu,
-                apdu_size);
+                ac_descr[device_idx][object_index].assigned_access_rights_count,
+                apdu, apdu_size);
             if (apdu_len == BACNET_STATUS_ABORT) {
                 rpdata->error_code =
                     ERROR_CODE_ABORT_SEGMENTATION_NOT_SUPPORTED;
@@ -343,6 +364,7 @@ bool Access_Credential_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
     int len = 0;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
     unsigned object_index = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
     /* decode the some of the request */
     len = bacapp_decode_application_data(
@@ -361,7 +383,7 @@ bool Access_Credential_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
             status = write_property_type_valid(
                 wp_data, &value, BACNET_APPLICATION_TAG_UNSIGNED_INT);
             if (status) {
-                ac_descr[object_index].global_identifier =
+                ac_descr[device_idx][object_index].global_identifier =
                     value.type.Unsigned_Int;
             }
             break;

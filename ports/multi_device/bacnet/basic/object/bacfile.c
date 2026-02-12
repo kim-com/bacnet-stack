@@ -28,6 +28,7 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
 #include "bacnet/basic/tsm/tsm.h"
+#include "bacnet/basic/object/device.h"
 
 struct object_data {
     char *Object_Name;
@@ -40,7 +41,7 @@ struct object_data {
     bool Archive : 1;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_FILE;
 /* These three arrays are used by the ReadPropertyMultiple handler */
@@ -141,7 +142,8 @@ const char *bacfile_pathname(uint32_t object_instance)
     struct object_data *pObject;
     const char *pathname = NULL;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pathname = pObject->Pathname;
     }
@@ -158,7 +160,8 @@ void bacfile_pathname_set(uint32_t object_instance, const char *pathname)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject->Pathname);
         pObject->Pathname = bacfile_strdup(pathname);
@@ -178,12 +181,14 @@ uint32_t bacfile_pathname_instance(const char *pathname)
     int index = 0;
     KEY key = BACNET_MAX_INSTANCE;
 
-    count = Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    count = Keylist_Count(Object_List[device_idx]);
     while (count) {
-        pObject = Keylist_Data_Index(Object_List, index);
+        pObject = Keylist_Data_Index(Object_List[device_idx], index);
         if (pObject->Pathname) {
             if (strcmp(pathname, pObject->Pathname) == 0) {
-                Keylist_Index_Key(Object_List, index, &key);
+                const int device_idx = Routed_Device_Object_Index();
+                Keylist_Index_Key(Object_List[device_idx], index, &key);
                 break;
             }
         }
@@ -211,7 +216,8 @@ bool bacfile_object_name(
     struct object_data *pObject;
     char name_text[32];
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -241,7 +247,8 @@ bool bacfile_object_name_set(uint32_t object_instance, const char *new_name)
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         free(pObject->Object_Name);
@@ -261,7 +268,8 @@ const char *bacfile_name_ansi(uint32_t object_instance)
     const char *name = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -278,7 +286,8 @@ bool bacfile_valid_instance(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -292,7 +301,8 @@ bool bacfile_valid_instance(uint32_t object_instance)
  */
 unsigned bacfile_count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -305,7 +315,8 @@ uint32_t bacfile_index_to_instance(unsigned find_index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, find_index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], find_index, &key);
 
     return key;
 }
@@ -655,7 +666,8 @@ bool bacfile_file_size_set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->File_Access_Stream) {
             status =
@@ -676,7 +688,8 @@ const char *bacfile_file_type(uint32_t object_instance)
     struct object_data *pObject;
     const char *mime_type = "application/octet-stream";
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->File_Type) {
             mime_type = pObject->File_Type;
@@ -695,7 +708,8 @@ void bacfile_file_type_set(uint32_t object_instance, const char *mime_type)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject->File_Type);
         pObject->File_Type = bacfile_strdup(mime_type);
@@ -718,7 +732,8 @@ bool bacfile_archive(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = pObject->Archive;
     }
@@ -742,7 +757,8 @@ bool bacfile_archive_set(uint32_t object_instance, bool archive)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Archive = archive;
         status = true;
@@ -761,7 +777,8 @@ bool bacfile_read_only(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = pObject->Read_Only;
     }
@@ -780,7 +797,8 @@ bool bacfile_read_only_set(uint32_t object_instance, bool read_only)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Read_Only = read_only;
         status = true;
@@ -799,7 +817,8 @@ bacfile_modification_date(uint32_t object_instance, BACNET_DATE_TIME *bdatetime)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         datetime_copy(bdatetime, &pObject->Modification_Date);
     }
@@ -815,7 +834,8 @@ bool bacfile_file_access_stream(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = pObject->File_Access_Stream;
     }
@@ -834,7 +854,8 @@ bool bacfile_file_access_stream_set(uint32_t object_instance, bool access)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->File_Access_Stream = access;
         status = true;
@@ -1229,7 +1250,8 @@ void *bacfile_create_context_get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1246,7 +1268,8 @@ void bacfile_create_context_set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1261,9 +1284,10 @@ uint32_t bacfile_create(uint32_t object_instance)
 {
     struct object_data *pObject = NULL;
     int index = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1273,9 +1297,10 @@ uint32_t bacfile_create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -1289,7 +1314,7 @@ uint32_t bacfile_create(uint32_t object_instance)
             pObject->Archive = false;
             pObject->File_Access_Stream = true;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1311,8 +1336,9 @@ bool bacfile_delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject = NULL;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1327,19 +1353,21 @@ bool bacfile_delete(uint32_t object_instance)
 void bacfile_cleanup(void)
 {
     struct object_data *pObject;
-
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject->Pathname);
-                free(pObject->File_Type);
-                free(pObject->Object_Name);
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject->Pathname);
+                    free(pObject->File_Type);
+                    free(pObject->Object_Name);
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1348,7 +1376,9 @@ void bacfile_cleanup(void)
  */
 void bacfile_init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

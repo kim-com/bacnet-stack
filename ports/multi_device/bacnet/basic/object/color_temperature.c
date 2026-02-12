@@ -29,6 +29,7 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
 #include "bacnet/basic/sys/linear.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "color_temperature.h"
 
@@ -51,7 +52,7 @@ struct object_data {
     void *Context;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* callback for present value writes */
 static color_temperature_write_present_value_callback
     Color_Temperature_Write_Present_Value_Callback;
@@ -148,7 +149,8 @@ bool Color_Temperature_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -163,7 +165,8 @@ bool Color_Temperature_Valid_Instance(uint32_t object_instance)
  */
 unsigned Color_Temperature_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -178,7 +181,8 @@ uint32_t Color_Temperature_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -194,7 +198,8 @@ uint32_t Color_Temperature_Index_To_Instance(unsigned index)
  */
 unsigned Color_Temperature_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -208,7 +213,8 @@ uint32_t Color_Temperature_Present_Value(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Present_Value;
     }
@@ -230,7 +236,8 @@ bool Color_Temperature_Present_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Present_Value = value;
         status = true;
@@ -260,7 +267,8 @@ static bool Color_Temperature_Present_Value_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if ((value >= BACNET_COLOR_TEMPERATURE_MIN) &&
@@ -308,7 +316,8 @@ uint32_t Color_Temperature_Tracking_Value(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Tracking_Value;
     }
@@ -330,7 +339,8 @@ bool Color_Temperature_Tracking_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Tracking_Value = value;
         status = true;
@@ -350,7 +360,8 @@ uint32_t Color_Temperature_Min_Pres_Value(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Present_Value_Minimum;
     }
@@ -372,7 +383,8 @@ bool Color_Temperature_Min_Pres_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Present_Value_Minimum = value;
         status = true;
@@ -392,7 +404,8 @@ uint32_t Color_Temperature_Max_Pres_Value(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Present_Value_Maximum;
     }
@@ -414,7 +427,8 @@ bool Color_Temperature_Max_Pres_Value_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Present_Value_Maximum = value;
         status = true;
@@ -436,7 +450,8 @@ bool Color_Temperature_Command(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject && value) {
         color_command_copy(value, &pObject->Color_Command);
         status = true;
@@ -458,7 +473,8 @@ bool Color_Temperature_Command_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject && value) {
         color_command_copy(&pObject->Color_Command, value);
         status = true;
@@ -480,7 +496,8 @@ Color_Temperature_In_Progress(uint32_t object_instance)
         BACNET_COLOR_OPERATION_IN_PROGRESS_MAX;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->In_Progress;
     }
@@ -501,7 +518,8 @@ bool Color_Temperature_In_Progress_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value < BACNET_COLOR_OPERATION_IN_PROGRESS_MAX) {
             pObject->In_Progress = value;
@@ -524,7 +542,8 @@ uint32_t Color_Temperature_Default_Color_Temperature(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Color_Temperature;
     }
@@ -546,7 +565,8 @@ bool Color_Temperature_Default_Color_Temperature_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Default_Color_Temperature = value;
         status = true;
@@ -576,7 +596,8 @@ static bool Color_Temperature_Default_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (pObject->Write_Enabled) {
@@ -611,7 +632,8 @@ uint32_t Color_Temperature_Default_Fade_Time(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Fade_Time;
     }
@@ -632,7 +654,8 @@ bool Color_Temperature_Default_Fade_Time_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((value == 0) ||
             ((value >= BACNET_COLOR_FADE_TIME_MIN) &&
@@ -666,7 +689,8 @@ static bool Color_Temperature_Default_Fade_Time_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (pObject->Write_Enabled) {
@@ -702,7 +726,8 @@ uint32_t Color_Temperature_Default_Ramp_Rate(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Ramp_Rate;
     }
@@ -723,7 +748,8 @@ bool Color_Temperature_Default_Ramp_Rate_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Default_Ramp_Rate = value;
         status = true;
@@ -753,7 +779,8 @@ static bool Color_Temperature_Default_Ramp_Rate_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (pObject->Write_Enabled) {
@@ -789,7 +816,8 @@ uint32_t Color_Temperature_Default_Step_Increment(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Default_Step_Increment;
     }
@@ -810,7 +838,8 @@ bool Color_Temperature_Default_Step_Increment_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Default_Step_Increment = value;
         status = true;
@@ -840,7 +869,8 @@ static bool Color_Temperature_Default_Step_Increment_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (pObject->Write_Enabled) {
@@ -876,7 +906,8 @@ BACNET_COLOR_TRANSITION Color_Temperature_Transition(uint32_t object_instance)
     BACNET_COLOR_TRANSITION value = BACNET_COLOR_TRANSITION_NONE;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Transition;
     }
@@ -897,7 +928,8 @@ bool Color_Temperature_Transition_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value < BACNET_COLOR_TRANSITION_MAX) {
             pObject->Transition = value;
@@ -929,7 +961,8 @@ static bool Color_Transition_Write(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         (void)priority;
         if (pObject->Write_Enabled) {
@@ -969,7 +1002,8 @@ bool Color_Temperature_Object_Name(
     struct object_data *pObject;
     char name_text[48] = "COLOR-TEMPERATURE-4194303";
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -998,7 +1032,8 @@ bool Color_Temperature_Name_Set(uint32_t object_instance, const char *new_name)
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -1017,7 +1052,8 @@ const char *Color_Temperature_Name_ASCII(uint32_t object_instance)
     const char *name = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -1037,7 +1073,8 @@ const char *Color_Temperature_Description(uint32_t object_instance)
     const char *name = NULL;
     const struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Description) {
             name = pObject->Description;
@@ -1063,7 +1100,8 @@ bool Color_Temperature_Description_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -1092,7 +1130,8 @@ static void Color_Temperature_Fade_To_CCT_Handler(
     uint32_t old_value, target_value, min_value, max_value;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -1157,7 +1196,8 @@ static void Color_Temperature_Ramp_To_CCT_Handler(
     uint16_t old_value, target_value, min_value, max_value, step_value, steps;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -1227,7 +1267,8 @@ static void Color_Temperature_Step_Up_CCT_Handler(uint32_t object_instance)
     uint16_t old_value, target_value, min_value, max_value, step_value;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -1266,7 +1307,8 @@ static void Color_Temperature_Step_Down_CCT_Handler(uint32_t object_instance)
     uint16_t old_value, target_value, min_value, max_value, step_value;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         return;
     }
@@ -1305,7 +1347,8 @@ void Color_Temperature_Timer(uint32_t object_instance, uint16_t milliseconds)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         switch (pObject->Color_Command.operation) {
             case BACNET_COLOR_OPERATION_FADE_TO_CCT:
@@ -1571,7 +1614,8 @@ bool Color_Temperature_Write_Enabled(uint32_t object_instance)
     bool value = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Write_Enabled;
     }
@@ -1587,7 +1631,8 @@ void Color_Temperature_Write_Enable(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Write_Enabled = true;
     }
@@ -1601,7 +1646,8 @@ void Color_Temperature_Write_Disable(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Write_Enabled = false;
     }
@@ -1616,7 +1662,8 @@ void *Color_Temperature_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1633,7 +1680,8 @@ void Color_Temperature_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1649,8 +1697,10 @@ uint32_t Color_Temperature_Create(uint32_t object_instance)
     struct object_data *pObject = NULL;
     int index = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1660,9 +1710,10 @@ uint32_t Color_Temperature_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -1687,7 +1738,7 @@ uint32_t Color_Temperature_Create(uint32_t object_instance)
             pObject->Changed = false;
             pObject->Write_Enabled = false;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1710,7 +1761,9 @@ bool Color_Temperature_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1726,15 +1779,17 @@ void Color_Temperature_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
         do {
-            pObject = Keylist_Data_Pop(Object_List);
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
             if (pObject) {
                 free(pObject);
             }
         } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1743,7 +1798,10 @@ void Color_Temperature_Cleanup(void)
  */
 void Color_Temperature_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
     }
 }
+}
+

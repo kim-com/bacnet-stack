@@ -29,6 +29,7 @@
 #include "bacnet/rp.h"
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "structured_view.h"
 
@@ -44,7 +45,7 @@ struct object_data {
 };
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -130,7 +131,8 @@ bool Structured_View_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -145,7 +147,8 @@ bool Structured_View_Valid_Instance(uint32_t object_instance)
  */
 unsigned Structured_View_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -160,7 +163,8 @@ uint32_t Structured_View_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -176,7 +180,8 @@ uint32_t Structured_View_Index_To_Instance(unsigned index)
  */
 unsigned Structured_View_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -196,7 +201,8 @@ bool Structured_View_Object_Name(
     struct object_data *pObject;
     char name_text[48] = "Structured-View-4194303";
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -226,7 +232,8 @@ bool Structured_View_Name_Set(uint32_t object_instance, const char *new_name)
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -245,7 +252,8 @@ const char *Structured_View_Name_ASCII(uint32_t object_instance)
     const char *name = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -265,7 +273,8 @@ const char *Structured_View_Description(uint32_t object_instance)
     const char *name = NULL;
     const struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Description) {
             name = pObject->Description;
@@ -291,7 +300,8 @@ bool Structured_View_Description_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -310,7 +320,8 @@ BACNET_NODE_TYPE Structured_View_Node_Type(uint32_t object_instance)
     BACNET_NODE_TYPE node_type = BACNET_NODE_UNKNOWN;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         node_type = pObject->Node_Type;
     }
@@ -330,7 +341,8 @@ bool Structured_View_Node_Type_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Node_Type = node_type;
@@ -349,7 +361,8 @@ const char *Structured_View_Node_Subtype(uint32_t object_instance)
     const char *name = NULL;
     const struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Node_Subtype) {
             name = pObject->Node_Subtype;
@@ -373,7 +386,8 @@ bool Structured_View_Node_Subtype_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Node_Subtype = new_name;
@@ -393,7 +407,8 @@ Structured_View_Subordinate_List(uint32_t object_instance)
     BACNET_SUBORDINATE_DATA *subordinate_list = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         subordinate_list = pObject->Subordinate_List;
     }
@@ -411,7 +426,8 @@ void Structured_View_Subordinate_List_Set(
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Subordinate_List = subordinate_list;
     }
@@ -430,7 +446,8 @@ Structured_View_Default_Subordinate_Relationship(uint32_t object_instance)
     BACNET_RELATIONSHIP relationship = BACNET_RELATIONSHIP_DEFAULT;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         relationship = pObject->Default_Subordinate_Relationship;
     }
@@ -451,7 +468,8 @@ bool Structured_View_Default_Subordinate_Relationship_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Default_Subordinate_Relationship = relationship;
@@ -472,7 +490,8 @@ Structured_View_Represents(uint32_t object_instance)
     BACNET_DEVICE_OBJECT_REFERENCE *represents = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         represents = &pObject->Represents;
     }
@@ -493,7 +512,8 @@ bool Structured_View_Represents_Set(
     bool status = false; /* return value */
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_device_object_reference_copy(
             &pObject->Represents, represents);
@@ -514,7 +534,8 @@ unsigned int Structured_View_Subordinate_List_Count(uint32_t object_instance)
     BACNET_SUBORDINATE_DATA *subordinate_list = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         subordinate_list = pObject->Subordinate_List;
         while (subordinate_list) {
@@ -541,7 +562,8 @@ BACNET_SUBORDINATE_DATA *Structured_View_Subordinate_List_Member(
     BACNET_SUBORDINATE_DATA *subordinate_list = NULL;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         subordinate_list = pObject->Subordinate_List;
         while (subordinate_list) {
@@ -812,7 +834,8 @@ void *Structured_View_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -829,7 +852,8 @@ void Structured_View_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -845,8 +869,10 @@ uint32_t Structured_View_Create(uint32_t object_instance)
     struct object_data *pObject = NULL;
     int index = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -856,9 +882,10 @@ uint32_t Structured_View_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (!pObject) {
@@ -875,7 +902,7 @@ uint32_t Structured_View_Create(uint32_t object_instance)
         pObject->Represents.objectIdentifier.instance = BACNET_MAX_INSTANCE;
         pObject->Node_Type = BACNET_NODE_UNKNOWN;
         /* add to list */
-        index = Keylist_Data_Add(Object_List, object_instance, pObject);
+        index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
         if (index < 0) {
             free(pObject);
             return BACNET_MAX_INSTANCE;
@@ -895,7 +922,9 @@ bool Structured_View_Delete(uint32_t object_instance)
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -911,15 +940,17 @@ void Structured_View_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
         do {
-            pObject = Keylist_Data_Pop(Object_List);
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
             if (pObject) {
                 free(pObject);
             }
         } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -928,7 +959,10 @@ void Structured_View_Cleanup(void)
  */
 void Structured_View_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
     }
 }
+}
+

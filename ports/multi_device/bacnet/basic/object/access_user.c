@@ -17,10 +17,11 @@
 #include "bacnet/wp.h"
 #include "access_user.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 
 static bool Access_User_Initialized = false;
 
-static ACCESS_USER_DESCR au_descr[MAX_ACCESS_USERS];
+static ACCESS_USER_DESCR au_descr[MAX_NUM_DEVICES][MAX_ACCESS_USERS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -83,13 +84,16 @@ void Access_User_Init(void)
     if (!Access_User_Initialized) {
         Access_User_Initialized = true;
 
-        for (i = 0; i < MAX_ACCESS_USERS; i++) {
-            au_descr[i].global_identifier =
-                0; /* set to some meaningful value */
-            au_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            au_descr[i].user_type = ACCESS_USER_TYPE_PERSON;
-            au_descr[i].credentials_count = 0;
-            /* fill in the credentials with proper ids */
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            for (i = 0; i < MAX_ACCESS_USERS; i++) {
+                au_descr[device_idx][i].global_identifier =
+                    0; /* set to some meaningful value */
+                au_descr[device_idx][i].reliability =
+                    RELIABILITY_NO_FAULT_DETECTED;
+                au_descr[device_idx][i].user_type = ACCESS_USER_TYPE_PERSON;
+                au_descr[device_idx][i].credentials_count = 0;
+                /* fill in the credentials with proper ids */
+            }
         }
     }
 
@@ -157,6 +161,7 @@ bool Access_User_Object_Name(
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int Access_User_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int len = 0;
     int apdu_len = 0; /* return value */
     BACNET_BIT_STRING bit_string;
@@ -187,7 +192,7 @@ int Access_User_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_GLOBAL_IDENTIFIER:
             apdu_len = encode_application_unsigned(
-                &apdu[0], au_descr[object_index].global_identifier);
+                &apdu[0], au_descr[device_idx][object_index].global_identifier);
             break;
         case PROP_STATUS_FLAGS:
             bitstring_init(&bit_string);
@@ -199,16 +204,19 @@ int Access_User_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], au_descr[object_index].reliability);
+                &apdu[0], au_descr[device_idx][object_index].reliability);
             break;
         case PROP_USER_TYPE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], au_descr[object_index].user_type);
+                &apdu[0], au_descr[device_idx][object_index].user_type);
             break;
         case PROP_CREDENTIALS:
-            for (i = 0; i < au_descr[object_index].credentials_count; i++) {
+            for (i = 0;
+                 i < au_descr[device_idx][object_index].credentials_count;
+                 i++) {
                 len = bacapp_encode_device_obj_ref(
-                    &apdu[0], &au_descr[object_index].credentials[i]);
+                    &apdu[0],
+                    &au_descr[device_idx][object_index].credentials[i]);
                 if (apdu_len + len < MAX_APDU) {
                     apdu_len += len;
                 } else {
@@ -232,6 +240,7 @@ int Access_User_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 /* returns true if successful */
 bool Access_User_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
     int len = 0;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
@@ -253,7 +262,7 @@ bool Access_User_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
             status = write_property_type_valid(
                 wp_data, &value, BACNET_APPLICATION_TAG_UNSIGNED_INT);
             if (status) {
-                au_descr[object_index].global_identifier =
+                au_descr[device_idx][object_index].global_identifier =
                     value.type.Unsigned_Int;
             }
             break;

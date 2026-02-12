@@ -28,6 +28,7 @@
 #include "bacnet/wp.h"
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "ao.h"
 
@@ -49,7 +50,7 @@ struct object_data {
     void *Context;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_ANALOG_OUTPUT;
 /* callback for present value writes */
@@ -144,8 +145,8 @@ void Analog_Output_Writable_Property_List(
 bool Analog_Output_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -159,7 +160,8 @@ bool Analog_Output_Valid_Instance(uint32_t object_instance)
  */
 unsigned Analog_Output_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -171,8 +173,8 @@ unsigned Analog_Output_Count(void)
 uint32_t Analog_Output_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
-
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -186,7 +188,8 @@ uint32_t Analog_Output_Index_To_Instance(unsigned index)
  */
 unsigned Analog_Output_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -199,8 +202,8 @@ float Analog_Output_Present_Value(uint32_t object_instance)
     float value = 0.0;
     uint8_t priority = 0; /* loop counter */
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = Analog_Output_Relinquish_Default(object_instance);
         for (priority = 0; priority < BACNET_MAX_PRIORITY; priority++) {
@@ -224,8 +227,8 @@ unsigned Analog_Output_Present_Value_Priority(uint32_t object_instance)
     unsigned p = 0; /* loop counter */
     unsigned priority = 0; /* return value */
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         for (p = 0; p < BACNET_MAX_PRIORITY; p++) {
             if (!pObject->Relinquished[p]) {
@@ -254,8 +257,8 @@ static int Analog_Output_Priority_Array_Encode(
     int apdu_len = BACNET_STATUS_ERROR;
     struct object_data *pObject;
     float real_value;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject && (index < BACNET_MAX_PRIORITY)) {
         if (pObject->Relinquished[index]) {
             apdu_len = encode_application_null(apdu);
@@ -279,8 +282,8 @@ float Analog_Output_Relinquish_Default(uint32_t object_instance)
 {
     float value = 0.0;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Relinquish_Default;
     }
@@ -300,8 +303,8 @@ bool Analog_Output_Relinquish_Default_Set(uint32_t object_instance, float value)
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Relinquish_Default = value;
         status = true;
@@ -351,8 +354,8 @@ bool Analog_Output_Present_Value_Set(
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY) &&
             (value >= pObject->Min_Pres_Value) &&
@@ -379,8 +382,8 @@ bool Analog_Output_Present_Value_Relinquish(
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             pObject->Relinquished[priority - 1] = true;
@@ -405,8 +408,8 @@ bool Analog_Output_Priority_Array_Relinquished(
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
         if (pObject->Relinquished[priority - 1]) {
             status = true;
@@ -427,8 +430,8 @@ float Analog_Output_Priority_Array_Value(
 {
     float real_value = 0.0f;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
         real_value = pObject->Priority_Array[priority - 1];
     }
@@ -457,8 +460,8 @@ static bool Analog_Output_Present_Value_Write(
     struct object_data *pObject;
     float old_value = 0.0;
     float new_value = 0.0;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY) &&
             (value >= pObject->Min_Pres_Value) &&
@@ -514,8 +517,8 @@ static bool Analog_Output_Present_Value_Relinquish_Write(
     struct object_data *pObject;
     float old_value = 0.0;
     float new_value = 0.0;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             if (priority != 6) {
@@ -566,8 +569,8 @@ bool Analog_Output_Object_Name(
     bool status = false;
     struct object_data *pObject;
     char name_text[32];
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -595,8 +598,8 @@ bool Analog_Output_Name_Set(uint32_t object_instance, const char *new_name)
 {
     bool status = false; /* return value */
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -614,8 +617,8 @@ const char *Analog_Output_Name_ASCII(uint32_t object_instance)
 {
     const char *name = NULL;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -634,8 +637,8 @@ BACNET_ENGINEERING_UNITS Analog_Output_Units(uint32_t object_instance)
 {
     BACNET_ENGINEERING_UNITS units = UNITS_NO_UNITS;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         units = pObject->Units;
     }
@@ -656,8 +659,8 @@ bool Analog_Output_Units_Set(
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Units = units;
         status = true;
@@ -678,8 +681,8 @@ bool Analog_Output_Out_Of_Service(uint32_t object_instance)
 {
     bool value = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Out_Of_Service;
     }
@@ -697,8 +700,8 @@ bool Analog_Output_Out_Of_Service(uint32_t object_instance)
 void Analog_Output_Out_Of_Service_Set(uint32_t object_instance, bool value)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Out_Of_Service != value) {
             pObject->Out_Of_Service = value;
@@ -717,8 +720,8 @@ bool Analog_Output_Overridden(uint32_t object_instance)
 {
     bool value = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Overridden;
     }
@@ -735,8 +738,8 @@ bool Analog_Output_Overridden(uint32_t object_instance)
 void Analog_Output_Overridden_Set(uint32_t object_instance, bool value)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Overridden != value) {
             pObject->Overridden = value;
@@ -754,8 +757,8 @@ BACNET_RELIABILITY Analog_Output_Reliability(uint32_t object_instance)
 {
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         reliability = (BACNET_RELIABILITY)pObject->Reliability;
     }
@@ -793,8 +796,8 @@ bool Analog_Output_Reliability_Set(
     struct object_data *pObject;
     bool status = false;
     bool fault = false;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             fault = Analog_Output_Object_Fault(pObject);
@@ -817,8 +820,8 @@ bool Analog_Output_Reliability_Set(
 static bool Analog_Output_Fault(uint32_t object_instance)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
 
     return Analog_Output_Object_Fault(pObject);
 }
@@ -832,8 +835,8 @@ const char *Analog_Output_Description(uint32_t object_instance)
 {
     const char *name = NULL;
     const struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Description;
     }
@@ -852,8 +855,8 @@ bool Analog_Output_Description_Set(
 {
     bool status = false; /* return value */
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -871,8 +874,8 @@ float Analog_Output_Min_Pres_Value(uint32_t object_instance)
 {
     float value = 0.0;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Min_Pres_Value;
     }
@@ -890,8 +893,8 @@ bool Analog_Output_Min_Pres_Value_Set(uint32_t object_instance, float value)
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Min_Pres_Value = value;
         status = true;
@@ -909,8 +912,8 @@ float Analog_Output_Max_Pres_Value(uint32_t object_instance)
 {
     float value = 0.0;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Max_Pres_Value;
     }
@@ -928,8 +931,8 @@ bool Analog_Output_Max_Pres_Value_Set(uint32_t object_instance, float value)
 {
     bool status = false;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Max_Pres_Value = value;
         status = true;
@@ -946,10 +949,10 @@ bool Analog_Output_Max_Pres_Value_Set(uint32_t object_instance, float value)
 bool Analog_Output_Change_Of_Value(uint32_t object_instance)
 {
     bool changed = false;
-
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         changed = pObject->Changed;
     }
@@ -964,8 +967,8 @@ bool Analog_Output_Change_Of_Value(uint32_t object_instance)
 void Analog_Output_Change_Of_Value_Clear(uint32_t object_instance)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Changed = false;
     }
@@ -985,8 +988,8 @@ bool Analog_Output_Encode_Value_List(
     const bool in_alarm = false;
     bool fault = false;
     const bool overridden = false;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Reliability != RELIABILITY_NO_FAULT_DETECTED) {
             fault = true;
@@ -1008,8 +1011,8 @@ float Analog_Output_COV_Increment(uint32_t object_instance)
 {
     float value = 0.0;
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->COV_Increment;
     }
@@ -1026,8 +1029,8 @@ float Analog_Output_COV_Increment(uint32_t object_instance)
 void Analog_Output_COV_Increment_Set(uint32_t object_instance, float value)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->COV_Increment = value;
     }
@@ -1293,8 +1296,8 @@ void Analog_Output_Write_Present_Value_Callback_Set(
 void *Analog_Output_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1310,8 +1313,8 @@ void *Analog_Output_Context_Get(uint32_t object_instance)
 void Analog_Output_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
-
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1328,9 +1331,11 @@ uint32_t Analog_Output_Create(uint32_t object_instance)
     int index = 0;
     unsigned priority = 0;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
+
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
     } else if (object_instance == BACNET_MAX_INSTANCE) {
@@ -1339,9 +1344,9 @@ uint32_t Analog_Output_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -1361,7 +1366,7 @@ uint32_t Analog_Output_Create(uint32_t object_instance)
             pObject->Min_Pres_Value = 0;
             pObject->Max_Pres_Value = 100;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1383,8 +1388,8 @@ bool Analog_Output_Delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject = NULL;
-
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1400,15 +1405,17 @@ void Analog_Output_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1417,7 +1424,9 @@ void Analog_Output_Cleanup(void)
  */
 void Analog_Output_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

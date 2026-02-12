@@ -21,9 +21,10 @@
 #include "bacnet/basic/object/csv.h"
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List = NULL;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_CHARACTERSTRING_VALUE;
 
@@ -111,9 +112,10 @@ void CharacterString_Value_Writable_Property_List(
  */
 void *CharacterString_Value_Context_Get(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct characterstring_object *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -128,9 +130,10 @@ void *CharacterString_Value_Context_Get(uint32_t object_instance)
  */
 void CharacterString_Value_Context_Set(uint32_t object_instance, void *context)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct characterstring_object *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -143,11 +146,12 @@ void CharacterString_Value_Context_Set(uint32_t object_instance, void *context)
  */
 uint32_t CharacterString_Value_Create(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct characterstring_object *pObject = NULL;
     int index;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -157,14 +161,15 @@ uint32_t CharacterString_Value_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct characterstring_object));
         if (pObject) {
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(
+                Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -190,10 +195,11 @@ uint32_t CharacterString_Value_Create(uint32_t object_instance)
  */
 bool CharacterString_Value_Delete(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     struct object_data *pObject = NULL;
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -208,16 +214,17 @@ bool CharacterString_Value_Delete(uint32_t object_instance)
 void CharacterString_Value_Cleanup(void)
 {
     struct object_data *pObject = NULL;
-
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -229,7 +236,8 @@ void CharacterString_Value_Cleanup(void)
 static struct characterstring_object *
 CharacterString_Value_Object(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -237,8 +245,10 @@ CharacterString_Value_Object(uint32_t object_instance)
  */
 void CharacterString_Value_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }
 
@@ -253,7 +263,8 @@ void CharacterString_Value_Init(void)
  */
 unsigned CharacterString_Value_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -267,9 +278,10 @@ unsigned CharacterString_Value_Instance_To_Index(uint32_t object_instance)
  */
 uint32_t CharacterString_Value_Index_To_Instance(unsigned index)
 {
+    const int device_idx = Routed_Device_Object_Index();
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -281,7 +293,8 @@ uint32_t CharacterString_Value_Index_To_Instance(unsigned index)
  */
 unsigned CharacterString_Value_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**

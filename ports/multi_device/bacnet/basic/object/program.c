@@ -30,7 +30,7 @@
 #include "bacnet/basic/object/program.h"
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List = NULL;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_PROGRAM;
 
@@ -136,7 +136,8 @@ void Program_Writable_Property_List(
  */
 static struct object_data *Object_Data(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -160,7 +161,8 @@ bool Program_Valid_Instance(uint32_t object_instance)
  */
 unsigned Program_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -173,9 +175,10 @@ unsigned Program_Count(void)
  */
 uint32_t Program_Index_To_Instance(unsigned index)
 {
+    const int device_idx = Routed_Device_Object_Index();
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -191,7 +194,8 @@ uint32_t Program_Index_To_Instance(unsigned index)
  */
 unsigned Program_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -762,10 +766,11 @@ void Program_Out_Of_Service_Set(uint32_t object_instance, bool value)
  */
 BACNET_RELIABILITY Program_Reliability(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         reliability = pObject->Reliability;
     }
@@ -780,10 +785,11 @@ BACNET_RELIABILITY Program_Reliability(uint32_t object_instance)
  */
 static bool Program_Fault(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct object_data *pObject;
     bool fault = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Reliability != RELIABILITY_NO_FAULT_DETECTED) {
             fault = true;
@@ -801,10 +807,11 @@ static bool Program_Fault(uint32_t object_instance)
  */
 bool Program_Reliability_Set(uint32_t object_instance, BACNET_RELIABILITY value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             pObject->Reliability = value;
@@ -1310,10 +1317,12 @@ static void Program_State_Running_Handler(struct object_data *pObject)
  */
 void Program_Timer(uint32_t object_instance, uint16_t milliseconds)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct object_data *pObject;
 
     (void)milliseconds;
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         switch (pObject->Program_State) {
             case PROGRAM_STATE_IDLE:
@@ -1349,11 +1358,12 @@ void Program_Timer(uint32_t object_instance, uint16_t milliseconds)
  */
 uint32_t Program_Create(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     struct object_data *pObject = NULL;
     int index;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1363,9 +1373,10 @@ uint32_t Program_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* already exists - signal success but don't change data */
         return object_instance;
@@ -1375,7 +1386,7 @@ uint32_t Program_Create(uint32_t object_instance)
         /* no RAM available - signal failure */
         return BACNET_MAX_INSTANCE;
     }
-    index = Keylist_Data_Add(Object_List, object_instance, pObject);
+    index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
     if (index < 0) {
         /* unable to add to list - signal failure */
         free(pObject);
@@ -1408,9 +1419,10 @@ uint32_t Program_Create(uint32_t object_instance)
  */
 bool Program_Delete(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false;
     struct object_data *pObject =
-        Keylist_Data_Delete(Object_List, object_instance);
+        Keylist_Data_Delete(Object_List[device_idx], object_instance);
 
     if (pObject) {
         free(pObject);
@@ -1426,17 +1438,18 @@ bool Program_Delete(uint32_t object_instance)
 void Program_Cleanup(void)
 {
     struct object_data *pObject;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1445,7 +1458,9 @@ void Program_Cleanup(void)
  */
 void Program_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

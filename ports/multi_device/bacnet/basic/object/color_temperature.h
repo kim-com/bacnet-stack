@@ -37,7 +37,6 @@ void Color_Temperature_Property_Lists(
 BACNET_STACK_EXPORT
 void Color_Temperature_Writable_Property_List(
     uint32_t object_instance, const int32_t **properties);
-
 BACNET_STACK_EXPORT
 bool Color_Temperature_Valid_Instance(uint32_t object_instance);
 BACNET_STACK_EXPORT

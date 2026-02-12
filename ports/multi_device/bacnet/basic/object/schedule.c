@@ -23,7 +23,7 @@
 #define MAX_SCHEDULES 4
 #endif
 
-static SCHEDULE_DESCR Schedule_Descr[MAX_SCHEDULES];
+static SCHEDULE_DESCR Schedule_Descr[MAX_NUM_DEVICES][MAX_SCHEDULES];
 
 static const int32_t Schedule_Properties_Required[] = {
     /* list of required properties */
@@ -116,12 +116,13 @@ void Schedule_Writable_Property_List(
  */
 SCHEDULE_DESCR *Schedule_Object(uint32_t object_instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned int object_index;
     SCHEDULE_DESCR *pObject = NULL;
 
     object_index = Schedule_Instance_To_Index(object_instance);
     if (object_index < MAX_SCHEDULES) {
-        pObject = &Schedule_Descr[object_index];
+        pObject = &Schedule_Descr[device_idx][object_index];
     }
 
     return pObject;
@@ -147,37 +148,41 @@ void Schedule_Init(void)
     datetime_set_date(&end_date, 0, 12, 31);
     datetime_wildcard_year_set(&end_date);
     datetime_wildcard_weekday_set(&end_date);
-    for (i = 0; i < MAX_SCHEDULES; i++, psched++) {
-        psched = &Schedule_Descr[i];
-        datetime_copy_date(&psched->Start_Date, &start_date);
-        datetime_copy_date(&psched->End_Date, &end_date);
-        for (j = 0; j < BACNET_WEEKLY_SCHEDULE_SIZE; j++) {
-            psched->Weekly_Schedule[j].TV_Count = 0;
-        }
-        memcpy(
-            &psched->Present_Value, &psched->Schedule_Default,
-            sizeof(psched->Present_Value));
-        psched->Schedule_Default.context_specific = false;
-        psched->Schedule_Default.tag = BACNET_APPLICATION_TAG_REAL;
-        psched->Schedule_Default.type.Real = 21.0f; /* 21 C, room temperature */
-        psched->obj_prop_ref_cnt = 0; /* no references, add as needed */
-        psched->Priority_For_Writing = 16; /* lowest priority */
-        psched->Out_Of_Service = false;
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        for (i = 0; i < MAX_SCHEDULES; i++, psched++) {
+            psched = &Schedule_Descr[device_idx][i];
+            datetime_copy_date(&psched->Start_Date, &start_date);
+            datetime_copy_date(&psched->End_Date, &end_date);
+            for (j = 0; j < BACNET_WEEKLY_SCHEDULE_SIZE; j++) {
+                psched->Weekly_Schedule[j].TV_Count = 0;
+            }
+            memcpy(
+                &psched->Present_Value, &psched->Schedule_Default,
+                sizeof(psched->Present_Value));
+            psched->Schedule_Default.context_specific = false;
+            psched->Schedule_Default.tag = BACNET_APPLICATION_TAG_REAL;
+            psched->Schedule_Default.type.Real =
+                21.0f; /* 21 C, room temperature */
+            psched->obj_prop_ref_cnt = 0; /* no references, add as needed */
+            psched->Priority_For_Writing = 16; /* lowest priority */
+            psched->Out_Of_Service = false;
 #if BACNET_EXCEPTION_SCHEDULE_SIZE
-        for (e = 0; e < BACNET_EXCEPTION_SCHEDULE_SIZE; e++) {
-            event = &psched->Exception_Schedule[e];
-            event->periodTag = BACNET_SPECIAL_EVENT_PERIOD_CALENDAR_ENTRY;
-            event->period.calendarEntry.tag = BACNET_CALENDAR_DATE_RANGE;
-            datetime_copy_date(
-                &event->period.calendarEntry.type.DateRange.startdate,
-                &start_date);
-            datetime_copy_date(
-                &event->period.calendarEntry.type.DateRange.enddate, &end_date);
-            event->period.calendarEntry.next = NULL;
-            event->timeValues.TV_Count = 0;
-            event->priority = 16;
-        }
+            for (e = 0; e < BACNET_EXCEPTION_SCHEDULE_SIZE; e++) {
+                event = &psched->Exception_Schedule[e];
+                event->periodTag = BACNET_SPECIAL_EVENT_PERIOD_CALENDAR_ENTRY;
+                event->period.calendarEntry.tag = BACNET_CALENDAR_DATE_RANGE;
+                datetime_copy_date(
+                    &event->period.calendarEntry.type.DateRange.startdate,
+                    &start_date);
+                datetime_copy_date(
+                    &event->period.calendarEntry.type.DateRange.enddate,
+                    &end_date);
+                event->period.calendarEntry.next = NULL;
+                event->timeValues.TV_Count = 0;
+                event->priority = 16;
+            }
 #endif
+        }
     }
 }
 
@@ -263,11 +268,12 @@ bool Schedule_Object_Name(
  */
 void Schedule_Out_Of_Service_Set(uint32_t object_instance, bool value)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Schedule_Instance_To_Index(object_instance);
     if (index < MAX_SCHEDULES) {
-        Schedule_Descr[index].Out_Of_Service = value;
+        Schedule_Descr[device_idx][index].Out_Of_Service = value;
     }
 }
 
@@ -557,6 +563,7 @@ Schedule_List_Of_Object_Property_References_Capacity(uint32_t object_instance)
  */
 int Schedule_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = 0;
     unsigned object_index = 0;
     SCHEDULE_DESCR *CurrentSC;
@@ -572,7 +579,7 @@ int Schedule_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
     }
     object_index = Schedule_Instance_To_Index(rpdata->object_instance);
     if (object_index < MAX_SCHEDULES) {
-        CurrentSC = &Schedule_Descr[object_index];
+        CurrentSC = &Schedule_Descr[device_idx][object_index];
     } else {
         return BACNET_STATUS_ERROR;
     }
@@ -901,6 +908,7 @@ static int Schedule_List_Of_Object_Property_References_Length(
  */
 bool Schedule_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned object_index;
     bool status = false; /* return value */
     int len;
@@ -957,10 +965,10 @@ bool Schedule_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
             if (status) {
                 /* set the start and end date */
                 datetime_copy_date(
-                    &Schedule_Descr[object_index].Start_Date,
+                    &Schedule_Descr[device_idx][object_index].Start_Date,
                     &value.type.Date_Range.startdate);
                 datetime_copy_date(
-                    &Schedule_Descr[object_index].End_Date,
+                    &Schedule_Descr[device_idx][object_index].End_Date,
                     &value.type.Date_Range.enddate);
             }
             break;

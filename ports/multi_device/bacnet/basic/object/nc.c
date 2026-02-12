@@ -34,7 +34,8 @@
 #endif
 
 #if defined(INTRINSIC_REPORTING)
-static NOTIFICATION_CLASS_INFO NC_Info[MAX_NOTIFICATION_CLASSES];
+static NOTIFICATION_CLASS_INFO NC_Info[MAX_NUM_DEVICES]
+                                      [MAX_NOTIFICATION_CLASSES];
 /* buffer for sending event messages */
 static uint8_t Event_Buffer[MAX_APDU];
 
@@ -94,21 +95,25 @@ void Notification_Class_Init(void)
 {
     uint8_t NotifyIdx = 0;
     unsigned i;
-
-    for (NotifyIdx = 0; NotifyIdx < MAX_NOTIFICATION_CLASSES; NotifyIdx++) {
-        /* init with zeros */
-        memset(&NC_Info[NotifyIdx], 0x00, sizeof(NOTIFICATION_CLASS_INFO));
-        /* set the basic parameters */
-        NC_Info[NotifyIdx].Ack_Required = 0;
-        /* The lowest priority for Normal message = 255 */
-        NC_Info[NotifyIdx].Priority[TRANSITION_TO_OFFNORMAL] = 255;
-        NC_Info[NotifyIdx].Priority[TRANSITION_TO_FAULT] = 255;
-        NC_Info[NotifyIdx].Priority[TRANSITION_TO_NORMAL] = 255;
-        /* note: default uses wildcard device destination */
-        for (i = 0; i < NC_MAX_RECIPIENTS; i++) {
-            BACNET_DESTINATION *destination;
-            destination = &NC_Info[NotifyIdx].Recipient_List[i];
-            bacnet_destination_default_init(destination);
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        for (NotifyIdx = 0; NotifyIdx < MAX_NOTIFICATION_CLASSES; NotifyIdx++) {
+            /* init with zeros */
+            memset(
+                &NC_Info[device_idx][NotifyIdx], 0x00,
+                sizeof(NOTIFICATION_CLASS_INFO));
+            /* set the basic parameters */
+            NC_Info[device_idx][NotifyIdx].Ack_Required = 0;
+            /* The lowest priority for Normal message = 255 */
+            NC_Info[device_idx][NotifyIdx].Priority[TRANSITION_TO_OFFNORMAL] =
+                255;
+            NC_Info[device_idx][NotifyIdx].Priority[TRANSITION_TO_FAULT] = 255;
+            NC_Info[device_idx][NotifyIdx].Priority[TRANSITION_TO_NORMAL] = 255;
+            /* note: default uses wildcard device destination */
+            for (i = 0; i < NC_MAX_RECIPIENTS; i++) {
+                BACNET_DESTINATION *destination;
+                destination = &NC_Info[device_idx][NotifyIdx].Recipient_List[i];
+                bacnet_destination_default_init(destination);
+            }
         }
     }
 
@@ -179,6 +184,7 @@ bool Notification_Class_Object_Name(
 
 int Notification_Class_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *CurrentNotify;
     BACNET_CHARACTER_STRING char_string;
     BACNET_BIT_STRING bit_string;
@@ -196,7 +202,8 @@ int Notification_Class_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
     apdu = rpdata->application_data;
     apdu_max = rpdata->application_data_len;
     CurrentNotify =
-        &NC_Info[Notification_Class_Instance_To_Index(rpdata->object_instance)];
+        &NC_Info[device_idx]
+                [Notification_Class_Instance_To_Index(rpdata->object_instance)];
 
     switch (rpdata->object_property) {
         case PROP_OBJECT_IDENTIFIER:
@@ -312,6 +319,7 @@ int Notification_Class_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 
 bool Notification_Class_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *CurrentNotify;
     NOTIFICATION_CLASS_INFO TmpNotify;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
@@ -322,7 +330,7 @@ bool Notification_Class_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
     uint8_t idx;
     int len = 0;
 
-    CurrentNotify = &NC_Info[Notification_Class_Instance_To_Index(
+    CurrentNotify = &NC_Info[device_idx][Notification_Class_Instance_To_Index(
         wp_data->object_instance)];
 
     /* decode some of the request */
@@ -475,6 +483,7 @@ bool Notification_Class_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 void Notification_Class_Get_Priorities(
     uint32_t Object_Instance, uint32_t *pPriorityArray)
 {
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *CurrentNotify;
     uint32_t object_index;
     int i;
@@ -482,7 +491,7 @@ void Notification_Class_Get_Priorities(
     object_index = Notification_Class_Instance_To_Index(Object_Instance);
 
     if (object_index < MAX_NOTIFICATION_CLASSES) {
-        CurrentNotify = &NC_Info[object_index];
+        CurrentNotify = &NC_Info[device_idx][object_index];
     } else {
         for (i = 0; i < 3; i++) {
             pPriorityArray[i] = 255;
@@ -498,11 +507,13 @@ void Notification_Class_Get_Priorities(
 bool Notification_Class_Get_Recipient_List(
     uint32_t Object_Instance, BACNET_DESTINATION *pRecipientList)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint32_t object_index =
         Notification_Class_Instance_To_Index(Object_Instance);
 
     if (object_index < MAX_NOTIFICATION_CLASSES) {
-        NOTIFICATION_CLASS_INFO *CurrentNotify = &NC_Info[object_index];
+        NOTIFICATION_CLASS_INFO *CurrentNotify =
+            &NC_Info[device_idx][object_index];
         int i;
 
         for (i = 0; i < NC_MAX_RECIPIENTS; i++) {
@@ -518,11 +529,13 @@ bool Notification_Class_Get_Recipient_List(
 bool Notification_Class_Set_Recipient_List(
     uint32_t Object_Instance, BACNET_DESTINATION *pRecipientList)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint32_t object_index =
         Notification_Class_Instance_To_Index(Object_Instance);
 
     if (object_index < MAX_NOTIFICATION_CLASSES) {
-        NOTIFICATION_CLASS_INFO *CurrentNotify = &NC_Info[object_index];
+        NOTIFICATION_CLASS_INFO *CurrentNotify =
+            &NC_Info[device_idx][object_index];
         int i;
 
         for (i = 0; i < NC_MAX_RECIPIENTS; i++) {
@@ -538,11 +551,13 @@ bool Notification_Class_Set_Recipient_List(
 void Notification_Class_Set_Priorities(
     uint32_t Object_Instance, uint32_t *pPriorityArray)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint32_t object_index =
         Notification_Class_Instance_To_Index(Object_Instance);
 
     if (object_index < MAX_NOTIFICATION_CLASSES) {
-        NOTIFICATION_CLASS_INFO *CurrentNotify = &NC_Info[object_index];
+        NOTIFICATION_CLASS_INFO *CurrentNotify =
+            &NC_Info[device_idx][object_index];
         int i;
 
         for (i = 0; i < 3; i++) {
@@ -556,11 +571,13 @@ void Notification_Class_Set_Priorities(
 void Notification_Class_Get_Ack_Required(
     uint32_t Object_Instance, uint8_t *pAckRequired)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint32_t object_index =
         Notification_Class_Instance_To_Index(Object_Instance);
 
     if (object_index < MAX_NOTIFICATION_CLASSES) {
-        NOTIFICATION_CLASS_INFO *CurrentNotify = &NC_Info[object_index];
+        NOTIFICATION_CLASS_INFO *CurrentNotify =
+            &NC_Info[device_idx][object_index];
         *pAckRequired = CurrentNotify->Ack_Required;
     } else {
         *pAckRequired = 0;
@@ -571,11 +588,13 @@ void Notification_Class_Get_Ack_Required(
 void Notification_Class_Set_Ack_Required(
     uint32_t Object_Instance, uint8_t Ack_Required)
 {
+    const int device_idx = Routed_Device_Object_Index();
     uint32_t object_index =
         Notification_Class_Instance_To_Index(Object_Instance);
 
     if (object_index < MAX_NOTIFICATION_CLASSES) {
-        NOTIFICATION_CLASS_INFO *CurrentNotify = &NC_Info[object_index];
+        NOTIFICATION_CLASS_INFO *CurrentNotify =
+            &NC_Info[device_idx][object_index];
         CurrentNotify->Ack_Required = Ack_Required;
     }
 }
@@ -637,6 +656,7 @@ void Notification_Class_common_reporting_function(
 {
     /* Fill the parameters common for all types of events. */
 
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *CurrentNotify;
     BACNET_DESTINATION *pBacDest;
     uint32_t notify_index;
@@ -646,7 +666,7 @@ void Notification_Class_common_reporting_function(
         Notification_Class_Instance_To_Index(event_data->notificationClass);
 
     if (notify_index < MAX_NOTIFICATION_CLASSES) {
-        CurrentNotify = &NC_Info[notify_index];
+        CurrentNotify = &NC_Info[device_idx][notify_index];
     } else {
         return;
     }
@@ -744,6 +764,7 @@ void Notification_Class_common_reporting_function(
 /* It should be called periodically (example once per minute). */
 void Notification_Class_find_recipient(void)
 {
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *notification;
     BACNET_DESTINATION *destination;
     BACNET_RECIPIENT *recipient;
@@ -753,7 +774,7 @@ void Notification_Class_find_recipient(void)
     unsigned i, j;
 
     for (i = 0; i < MAX_NOTIFICATION_CLASSES; i++) {
-        notification = &NC_Info[i];
+        notification = &NC_Info[device_idx][i];
         for (j = 0; j < NC_MAX_RECIPIENTS; j++) {
             destination = &notification->Recipient_List[j];
             recipient = &destination->Recipient;
@@ -813,6 +834,7 @@ void Notification_Class_find_recipient(void)
  */
 int Notification_Class_Add_List_Element(BACNET_LIST_ELEMENT_DATA *list_element)
 {
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *notification = NULL;
     BACNET_DESTINATION recipient_list[NC_MAX_RECIPIENTS] = { 0 };
     uint8_t *application_data = NULL;
@@ -844,7 +866,7 @@ int Notification_Class_Add_List_Element(BACNET_LIST_ELEMENT_DATA *list_element)
     notify_index =
         Notification_Class_Instance_To_Index(list_element->object_instance);
     if (notify_index < MAX_NOTIFICATION_CLASSES) {
-        notification = &NC_Info[notify_index];
+        notification = &NC_Info[device_idx][notify_index];
     } else {
         list_element->error_class = ERROR_CLASS_OBJECT;
         list_element->error_code = ERROR_CODE_UNKNOWN_OBJECT;
@@ -977,6 +999,7 @@ int Notification_Class_Add_List_Element(BACNET_LIST_ELEMENT_DATA *list_element)
 int Notification_Class_Remove_List_Element(
     BACNET_LIST_ELEMENT_DATA *list_element)
 {
+    const int device_idx = Routed_Device_Object_Index();
     NOTIFICATION_CLASS_INFO *notification = NULL;
     uint32_t notify_index = 0;
     unsigned index = 0;
@@ -1008,7 +1031,7 @@ int Notification_Class_Remove_List_Element(
     notify_index =
         Notification_Class_Instance_To_Index(list_element->object_instance);
     if (notify_index < MAX_NOTIFICATION_CLASSES) {
-        notification = &NC_Info[notify_index];
+        notification = &NC_Info[device_idx][notify_index];
     } else {
         list_element->error_class = ERROR_CLASS_OBJECT;
         list_element->error_code = ERROR_CODE_UNKNOWN_OBJECT;

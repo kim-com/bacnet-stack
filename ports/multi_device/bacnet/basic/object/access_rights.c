@@ -17,12 +17,13 @@
 #include "bacnet/proplist.h"
 #include "bacnet/wp.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "access_rights.h"
 
 static bool Access_Rights_Initialized = false;
 
-static ACCESS_RIGHTS_DESCR ar_descr[MAX_ACCESS_RIGHTS];
+static ACCESS_RIGHTS_DESCR ar_descr[MAX_NUM_DEVICES][MAX_ACCESS_RIGHTS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -94,17 +95,18 @@ void Access_Rights_Init(void)
     if (!Access_Rights_Initialized) {
         Access_Rights_Initialized = true;
 
-        for (i = 0; i < MAX_ACCESS_RIGHTS; i++) {
-            ar_descr[i].global_identifier =
-                0; /* set to some meaningful value */
-            ar_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            ar_descr[i].enable = false;
-            ar_descr[i].negative_access_rules_count = 0;
-            ar_descr[i].positive_access_rules_count = 0;
-            /* fill in the positive and negative access rules with proper ids */
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            for (i = 0; i < MAX_ACCESS_RIGHTS; i++) {
+                ar_descr[device_idx][i].global_identifier =
+                    0; /* set to some meaningful value */
+                ar_descr[device_idx][i].reliability = RELIABILITY_NO_FAULT_DETECTED;
+                ar_descr[device_idx][i].enable = false;
+                ar_descr[device_idx][i].negative_access_rules_count = 0;
+                ar_descr[device_idx][i].positive_access_rules_count = 0;
+                /* fill in the positive and negative access rules with proper ids */
+            }
         }
     }
-
     return;
 }
 
@@ -179,14 +181,17 @@ bool Access_Rights_Object_Name(
 static int Negative_Access_Rules_Encode(
     uint32_t object_instance, BACNET_ARRAY_INDEX index, uint8_t *apdu)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = BACNET_STATUS_ERROR;
     BACNET_ACCESS_RULE *rule;
     uint32_t count;
 
     if (object_instance < MAX_ACCESS_RIGHTS) {
-        count = ar_descr[object_instance].negative_access_rules_count;
+        count =
+            ar_descr[device_idx][object_instance].negative_access_rules_count;
         if (index < count) {
-            rule = &ar_descr[object_instance].negative_access_rules[index];
+            rule = &ar_descr[device_idx][object_instance]
+                        .negative_access_rules[index];
             apdu_len = bacapp_encode_access_rule(&apdu[0], rule);
         }
     }
@@ -207,14 +212,17 @@ static int Negative_Access_Rules_Encode(
 static int Positive_Access_Rules_Encode(
     uint32_t object_instance, BACNET_ARRAY_INDEX index, uint8_t *apdu)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = BACNET_STATUS_ERROR;
     BACNET_ACCESS_RULE *rule;
     uint32_t count;
 
     if (object_instance < MAX_ACCESS_RIGHTS) {
-        count = ar_descr[object_instance].positive_access_rules_count;
+        count =
+            ar_descr[device_idx][object_instance].positive_access_rules_count;
         if (index < count) {
-            rule = &ar_descr[object_instance].positive_access_rules[index];
+            rule = &ar_descr[device_idx][object_instance]
+                        .positive_access_rules[index];
             apdu_len = bacapp_encode_access_rule(&apdu[0], rule);
         }
     }
@@ -225,6 +233,7 @@ static int Positive_Access_Rules_Encode(
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int Access_Rights_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int apdu_len = 0; /* return value */
     int apdu_size = 0;
     BACNET_BIT_STRING bit_string;
@@ -256,7 +265,7 @@ int Access_Rights_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_GLOBAL_IDENTIFIER:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ar_descr[object_index].global_identifier);
+                &apdu[0], ar_descr[device_idx][object_index].global_identifier);
             break;
         case PROP_STATUS_FLAGS:
             bitstring_init(&bit_string);
@@ -268,14 +277,15 @@ int Access_Rights_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ar_descr[object_index].reliability);
+                &apdu[0], ar_descr[device_idx][object_index].reliability);
             break;
         case PROP_ENABLE:
             apdu_len = encode_application_boolean(
-                &apdu[0], ar_descr[object_index].enable);
+                &apdu[0], ar_descr[device_idx][object_index].enable);
             break;
         case PROP_NEGATIVE_ACCESS_RULES:
-            count = ar_descr[object_index].negative_access_rules_count;
+            count =
+                ar_descr[device_idx][object_index].negative_access_rules_count;
             apdu_len = bacnet_array_encode(
                 rpdata->object_instance, rpdata->array_index,
                 Negative_Access_Rules_Encode, count, apdu, apdu_size);
@@ -288,7 +298,8 @@ int Access_Rights_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             }
             break;
         case PROP_POSITIVE_ACCESS_RULES:
-            count = ar_descr[object_index].positive_access_rules_count;
+            count =
+                ar_descr[device_idx][object_index].positive_access_rules_count;
             apdu_len = bacnet_array_encode(
                 rpdata->object_instance, rpdata->array_index,
                 Positive_Access_Rules_Encode, count, apdu, apdu_size);
@@ -313,6 +324,7 @@ int Access_Rights_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 /* returns true if successful */
 bool Access_Rights_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
     int len = 0;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
@@ -334,7 +346,7 @@ bool Access_Rights_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
             status = write_property_type_valid(
                 wp_data, &value, BACNET_APPLICATION_TAG_UNSIGNED_INT);
             if (status) {
-                ar_descr[object_index].global_identifier =
+                ar_descr[device_idx][object_index].global_identifier =
                     value.type.Unsigned_Int;
             }
             break;

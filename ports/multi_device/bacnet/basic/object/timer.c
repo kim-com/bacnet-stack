@@ -27,6 +27,7 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/debug.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/timer.h"
 
@@ -35,7 +36,7 @@
 #endif
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List = NULL;
+static OS_Keylist Object_List[MAX_NUM_DEVICES] = { NULL };
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_TIMER;
 static write_property_function Write_Property_Internal_Callback;
@@ -165,7 +166,8 @@ void Timer_Writable_Property_List(
  */
 static struct object_data *Object_Data(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -189,7 +191,8 @@ bool Timer_Valid_Instance(uint32_t object_instance)
  */
 unsigned Timer_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -204,7 +207,8 @@ uint32_t Timer_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -220,7 +224,8 @@ uint32_t Timer_Index_To_Instance(unsigned index)
  */
 unsigned Timer_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -1004,7 +1009,8 @@ BACNET_RELIABILITY Timer_Reliability(uint32_t object_instance)
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         reliability = pObject->Reliability;
     }
@@ -1022,7 +1028,8 @@ static bool Timer_Fault(uint32_t object_instance)
     struct object_data *pObject;
     bool fault = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Reliability != RELIABILITY_NO_FAULT_DETECTED) {
             fault = true;
@@ -1043,7 +1050,8 @@ bool Timer_Reliability_Set(uint32_t object_instance, BACNET_RELIABILITY value)
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             pObject->Reliability = value;
@@ -1064,7 +1072,8 @@ uint32_t Timer_Present_Value(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Present_Value;
     }
@@ -1095,7 +1104,8 @@ bool Timer_Present_Value_Set(uint32_t object_instance, uint32_t value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value == 0) {
             /* If a value of zero is written to the Present_Value property */
@@ -1172,7 +1182,8 @@ bool Timer_Update_Time(uint32_t object_instance, BACNET_DATE_TIME *bdatetime)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         datetime_copy(bdatetime, &pObject->Update_Time);
         status = true;
@@ -1192,7 +1203,8 @@ bool Timer_Update_Time_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         datetime_copy(&pObject->Update_Time, bdatetime);
         status = true;
@@ -1217,7 +1229,8 @@ bool Timer_Expiration_Time(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Timer_State == TIMER_STATE_RUNNING) {
             datetime_copy(bdatetime, &pObject->Update_Time);
@@ -1490,7 +1503,8 @@ static int Timer_State_Change_Value_Encode(
     int apdu_len = BACNET_STATUS_ERROR;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* Note: The timer state change NONE=0
            has no corresponding array element.*/
@@ -1516,7 +1530,8 @@ BACNET_TIMER_STATE_CHANGE_VALUE *Timer_State_Change_Value(
     unsigned index;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* Note: The timer state change NONE=0
            has no corresponding array element.*/
@@ -1546,7 +1561,8 @@ bool Timer_State_Change_Value_Get(
     unsigned index;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* Note: The timer state change NONE=0
            has no corresponding array element.*/
@@ -1577,7 +1593,8 @@ bool Timer_State_Change_Value_Set(
     unsigned index;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* Note: The timer state change NONE=0
            has no corresponding array element.*/
@@ -2178,7 +2195,8 @@ void Timer_Task(uint32_t object_instance, uint16_t milliseconds)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         switch (pObject->Timer_State) {
             case TIMER_STATE_RUNNING:
@@ -2299,8 +2317,10 @@ uint32_t Timer_Create(uint32_t object_instance)
     int index;
     unsigned i;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -2310,9 +2330,9 @@ uint32_t Timer_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* already exists - signal success but don't change data */
         return object_instance;
@@ -2322,7 +2342,7 @@ uint32_t Timer_Create(uint32_t object_instance)
         /* no RAM available - signal failure */
         return BACNET_MAX_INSTANCE;
     }
-    index = Keylist_Data_Add(Object_List, object_instance, pObject);
+    index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
     if (index < 0) {
         /* unable to add to list - signal failure */
         free(pObject);
@@ -2358,8 +2378,9 @@ uint32_t Timer_Create(uint32_t object_instance)
 bool Timer_Delete(uint32_t object_instance)
 {
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
     struct object_data *pObject =
-        Keylist_Data_Delete(Object_List, object_instance);
+        Keylist_Data_Delete(Object_List[device_idx], object_instance);
 
     if (pObject) {
         free(pObject);
@@ -2376,16 +2397,18 @@ void Timer_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
 
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -2394,7 +2417,9 @@ void Timer_Cleanup(void)
  */
 void Timer_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

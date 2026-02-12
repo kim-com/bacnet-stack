@@ -60,7 +60,7 @@ struct object_data {
 #endif
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_BINARY_VALUE;
 /* callback for present value writes */
@@ -162,7 +162,8 @@ void Binary_Value_Writable_Property_List(
  */
 static struct object_data *Binary_Value_Object(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -188,7 +189,8 @@ bool Binary_Value_Valid_Instance(uint32_t object_instance)
  */
 unsigned Binary_Value_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -200,8 +202,9 @@ unsigned Binary_Value_Count(void)
 uint32_t Binary_Value_Index_To_Instance(unsigned index)
 {
     uint32_t instance = UINT32_MAX;
+    const int device_idx = Routed_Device_Object_Index();
 
-    (void)Keylist_Index_Key(Object_List, index, &instance);
+    (void)Keylist_Index_Key(Object_List[device_idx], index, &instance);
 
     return instance;
 }
@@ -214,7 +217,8 @@ uint32_t Binary_Value_Index_To_Instance(unsigned index)
  */
 unsigned Binary_Value_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -376,8 +380,9 @@ bool Binary_Value_Reliability_Set(
     struct object_data *pObject;
     bool status = false;
     bool fault = false;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             fault = Binary_Value_Object_Fault(pObject);
@@ -1224,8 +1229,9 @@ void Binary_Value_Write_Disable(uint32_t object_instance)
 void *Binary_Value_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1241,8 +1247,9 @@ void *Binary_Value_Context_Get(uint32_t object_instance)
 void Binary_Value_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1257,9 +1264,10 @@ uint32_t Binary_Value_Create(uint32_t object_instance)
 {
     struct object_data *pObject = NULL;
     int index = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1269,9 +1277,9 @@ uint32_t Binary_Value_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -1309,7 +1317,7 @@ uint32_t Binary_Value_Create(uint32_t object_instance)
                 Object_Type, Binary_Value_Alarm_Summary);
 #endif
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1328,16 +1336,19 @@ uint32_t Binary_Value_Create(uint32_t object_instance)
 void Binary_Value_Cleanup(void)
 {
     struct object_data *pObject;
+    int device_idx;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1348,8 +1359,9 @@ bool Binary_Value_Delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1363,8 +1375,12 @@ bool Binary_Value_Delete(uint32_t object_instance)
  */
 void Binary_Value_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    int device_idx;
+
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }
 
@@ -1451,7 +1467,8 @@ bool Binary_Value_Event_Detection_Enable_Set(
  */
 static struct object_data *Binary_Value_Object_Index(int index)
 {
-    return Keylist_Data_Index(Object_List, index);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data_Index(Object_List[device_idx], index);
 }
 
 /**

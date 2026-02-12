@@ -16,10 +16,11 @@
 #include "bacnet/wp.h"
 #include "access_point.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 
 static bool Access_Point_Initialized = false;
 
-static ACCESS_POINT_DESCR ap_descr[MAX_ACCESS_POINTS];
+static ACCESS_POINT_DESCR ap_descr[MAX_NUM_DEVICES][MAX_ACCESS_POINTS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -97,20 +98,27 @@ void Access_Point_Init(void)
     if (!Access_Point_Initialized) {
         Access_Point_Initialized = true;
 
-        for (i = 0; i < MAX_ACCESS_POINTS; i++) {
-            ap_descr[i].event_state = EVENT_STATE_NORMAL;
-            ap_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            ap_descr[i].out_of_service = false;
-            ap_descr[i].authentication_status = AUTHENTICATION_STATUS_NOT_READY;
-            ap_descr[i].active_authentication_policy = 0;
-            ap_descr[i].number_of_authentication_policies = 0;
-            ap_descr[i].authorization_mode = AUTHORIZATION_MODE_AUTHORIZE;
-            ap_descr[i].access_event = ACCESS_EVENT_NONE;
-            /* timestamp uninitialized */
-            /* access_event_credential should be set to some meaningful value */
-            ap_descr[i].num_doors = 0;
-            /* fill in the access doors with proper ids */
-            ap_descr[i].priority_for_writing = 16; /* lowest possible for now */
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            for (i = 0; i < MAX_ACCESS_POINTS; i++) {
+                ap_descr[device_idx][i].event_state = EVENT_STATE_NORMAL;
+                ap_descr[device_idx][i].reliability =
+                    RELIABILITY_NO_FAULT_DETECTED;
+                ap_descr[device_idx][i].out_of_service = false;
+                ap_descr[device_idx][i].authentication_status =
+                    AUTHENTICATION_STATUS_NOT_READY;
+                ap_descr[device_idx][i].active_authentication_policy = 0;
+                ap_descr[device_idx][i].number_of_authentication_policies = 0;
+                ap_descr[device_idx][i].authorization_mode =
+                    AUTHORIZATION_MODE_AUTHORIZE;
+                ap_descr[device_idx][i].access_event = ACCESS_EVENT_NONE;
+                /* timestamp uninitialized */
+                /* access_event_credential should be set to some meaningful
+                 * value */
+                ap_descr[device_idx][i].num_doors = 0;
+                /* fill in the access doors with proper ids */
+                ap_descr[device_idx][i].priority_for_writing =
+                    16; /* lowest possible for now */
+            }
         }
     }
 
@@ -177,12 +185,13 @@ bool Access_Point_Object_Name(
 
 bool Access_Point_Out_Of_Service(uint32_t instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool oos_flag = false;
 
     index = Access_Point_Instance_To_Index(instance);
     if (index < MAX_ACCESS_POINTS) {
-        oos_flag = ap_descr[index].out_of_service;
+        oos_flag = ap_descr[device_idx][index].out_of_service;
     }
 
     return oos_flag;
@@ -190,17 +199,19 @@ bool Access_Point_Out_Of_Service(uint32_t instance)
 
 void Access_Point_Out_Of_Service_Set(uint32_t instance, bool oos_flag)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Access_Point_Instance_To_Index(instance);
     if (index < MAX_ACCESS_POINTS) {
-        ap_descr[index].out_of_service = oos_flag;
+        ap_descr[device_idx][index].out_of_service = oos_flag;
     }
 }
 
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int Access_Point_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int len = 0;
     int apdu_len = 0; /* return value */
     BACNET_BIT_STRING bit_string;
@@ -241,11 +252,11 @@ int Access_Point_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_EVENT_STATE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ap_descr[object_index].event_state);
+                &apdu[0], ap_descr[device_idx][object_index].event_state);
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ap_descr[object_index].reliability);
+                &apdu[0], ap_descr[device_idx][object_index].reliability);
             break;
         case PROP_OUT_OF_SERVICE:
             state = Access_Point_Out_Of_Service(rpdata->object_instance);
@@ -253,45 +264,54 @@ int Access_Point_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_AUTHENTICATION_STATUS:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ap_descr[object_index].authentication_status);
+                &apdu[0],
+                ap_descr[device_idx][object_index].authentication_status);
             break;
         case PROP_ACTIVE_AUTHENTICATION_POLICY:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ap_descr[object_index].active_authentication_policy);
+                &apdu[0],
+                ap_descr[device_idx][object_index]
+                    .active_authentication_policy);
             break;
         case PROP_NUMBER_OF_AUTHENTICATION_POLICIES:
             apdu_len = encode_application_unsigned(
                 &apdu[0],
-                ap_descr[object_index].number_of_authentication_policies);
+                ap_descr[device_idx][object_index]
+                    .number_of_authentication_policies);
             break;
         case PROP_AUTHORIZATION_MODE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ap_descr[object_index].authorization_mode);
+                &apdu[0],
+                ap_descr[device_idx][object_index].authorization_mode);
             break;
         case PROP_ACCESS_EVENT:
             apdu_len = encode_application_enumerated(
-                &apdu[0], ap_descr[object_index].access_event);
+                &apdu[0], ap_descr[device_idx][object_index].access_event);
             break;
         case PROP_ACCESS_EVENT_TAG:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ap_descr[object_index].access_event_tag);
+                &apdu[0], ap_descr[device_idx][object_index].access_event_tag);
             break;
         case PROP_ACCESS_EVENT_TIME:
             apdu_len = bacapp_encode_timestamp(
-                &apdu[0], &ap_descr[object_index].access_event_time);
+                &apdu[0],
+                &ap_descr[device_idx][object_index].access_event_time);
             break;
         case PROP_ACCESS_EVENT_CREDENTIAL:
             apdu_len = bacapp_encode_device_obj_ref(
-                &apdu[0], &ap_descr[object_index].access_event_credential);
+                &apdu[0],
+                &ap_descr[device_idx][object_index].access_event_credential);
             break;
         case PROP_ACCESS_DOORS:
             if (rpdata->array_index == 0) {
                 apdu_len = encode_application_unsigned(
-                    &apdu[0], ap_descr[object_index].num_doors);
+                    &apdu[0], ap_descr[device_idx][object_index].num_doors);
             } else if (rpdata->array_index == BACNET_ARRAY_ALL) {
-                for (i = 0; i < ap_descr[object_index].num_doors; i++) {
+                for (i = 0; i < ap_descr[device_idx][object_index].num_doors;
+                     i++) {
                     len = bacapp_encode_device_obj_ref(
-                        &apdu[0], &ap_descr[object_index].access_doors[i]);
+                        &apdu[0],
+                        &ap_descr[device_idx][object_index].access_doors[i]);
                     if (apdu_len + len < MAX_APDU) {
                         apdu_len += len;
                     } else {
@@ -302,10 +322,11 @@ int Access_Point_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
                     }
                 }
             } else {
-                if (rpdata->array_index <= ap_descr[object_index].num_doors) {
+                if (rpdata->array_index <=
+                    ap_descr[device_idx][object_index].num_doors) {
                     apdu_len = bacapp_encode_device_obj_ref(
                         &apdu[0],
-                        &ap_descr[object_index]
+                        &ap_descr[device_idx][object_index]
                              .access_doors[rpdata->array_index - 1]);
                 } else {
                     rpdata->error_class = ERROR_CLASS_PROPERTY;
@@ -316,7 +337,8 @@ int Access_Point_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_PRIORITY_FOR_WRITING:
             apdu_len = encode_application_unsigned(
-                &apdu[0], ap_descr[object_index].priority_for_writing);
+                &apdu[0],
+                ap_descr[device_idx][object_index].priority_for_writing);
             break;
         default:
             rpdata->error_class = ERROR_CLASS_PROPERTY;

@@ -16,12 +16,14 @@
 #include "bacnet/bacapp.h"
 #include "bacnet/wp.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/credential_data_input.h"
 
 static bool Credential_Data_Input_Initialized = false;
 
-static CREDENTIAL_DATA_INPUT_DESCR cdi_descr[MAX_CREDENTIAL_DATA_INPUTS];
+static CREDENTIAL_DATA_INPUT_DESCR cdi_descr[MAX_NUM_DEVICES]
+                                            [MAX_CREDENTIAL_DATA_INPUTS];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -95,17 +97,21 @@ void Credential_Data_Input_Init(void)
     if (!Credential_Data_Input_Initialized) {
         Credential_Data_Input_Initialized = true;
 
-        for (i = 0; i < MAX_CREDENTIAL_DATA_INPUTS; i++) {
-            /* there should be a meaningful setup for present value */
-            cdi_descr[i].present_value.format_type =
-                AUTHENTICATION_FACTOR_UNDEFINED;
-            cdi_descr[i].present_value.format_class = 0;
-            octetstring_init(&cdi_descr[i].present_value.value, NULL, 0);
-            cdi_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            cdi_descr[i].out_of_service = false;
-            /* set supported formats */
-            cdi_descr[i].supported_formats_count = 0;
-            /* timestamp uninitialized */
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            for (i = 0; i < MAX_CREDENTIAL_DATA_INPUTS; i++) {
+                /* there should be a meaningful setup for present value */
+                cdi_descr[device_idx][i].present_value.format_type =
+                    AUTHENTICATION_FACTOR_UNDEFINED;
+                cdi_descr[device_idx][i].present_value.format_class = 0;
+                octetstring_init(
+                    &cdi_descr[device_idx][i].present_value.value, NULL, 0);
+                cdi_descr[device_idx][i].reliability =
+                    RELIABILITY_NO_FAULT_DETECTED;
+                cdi_descr[device_idx][i].out_of_service = false;
+                /* set supported formats */
+                cdi_descr[device_idx][i].supported_formats_count = 0;
+                /* timestamp uninitialized */
+            }
         }
     }
 
@@ -172,12 +178,13 @@ bool Credential_Data_Input_Object_Name(
 
 bool Credential_Data_Input_Out_Of_Service(uint32_t instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool oos_flag = false;
 
     index = Credential_Data_Input_Instance_To_Index(instance);
     if (index < MAX_CREDENTIAL_DATA_INPUTS) {
-        oos_flag = cdi_descr[index].out_of_service;
+        oos_flag = cdi_descr[device_idx][index].out_of_service;
     }
 
     return oos_flag;
@@ -185,17 +192,19 @@ bool Credential_Data_Input_Out_Of_Service(uint32_t instance)
 
 void Credential_Data_Input_Out_Of_Service_Set(uint32_t instance, bool oos_flag)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Credential_Data_Input_Instance_To_Index(instance);
     if (index < MAX_CREDENTIAL_DATA_INPUTS) {
-        cdi_descr[index].out_of_service = oos_flag;
+        cdi_descr[device_idx][index].out_of_service = oos_flag;
     }
 }
 
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int len = 0;
     int apdu_len = 0; /* return value */
     BACNET_BIT_STRING bit_string;
@@ -230,7 +239,8 @@ int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_PRESENT_VALUE:
             apdu_len = bacapp_encode_authentication_factor(
-                &apdu[apdu_len], &cdi_descr[object_index].present_value);
+                &apdu[apdu_len],
+                &cdi_descr[device_idx][object_index].present_value);
             break;
         case PROP_STATUS_FLAGS:
             bitstring_init(&bit_string);
@@ -244,7 +254,7 @@ int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], cdi_descr[object_index].reliability);
+                &apdu[0], cdi_descr[device_idx][object_index].reliability);
             break;
         case PROP_OUT_OF_SERVICE:
             state =
@@ -254,13 +264,17 @@ int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
         case PROP_SUPPORTED_FORMATS:
             if (rpdata->array_index == 0) {
                 apdu_len = encode_application_unsigned(
-                    &apdu[0], cdi_descr[object_index].supported_formats_count);
+                    &apdu[0],
+                    cdi_descr[device_idx][object_index]
+                        .supported_formats_count);
             } else if (rpdata->array_index == BACNET_ARRAY_ALL) {
-                for (i = 0; i < cdi_descr[object_index].supported_formats_count;
+                for (i = 0; i < cdi_descr[device_idx][object_index]
+                                    .supported_formats_count;
                      i++) {
                     len = bacapp_encode_authentication_factor_format(
                         &apdu[0],
-                        &cdi_descr[object_index].supported_formats[i]);
+                        &cdi_descr[device_idx][object_index]
+                             .supported_formats[i]);
                     if (apdu_len + len < MAX_APDU) {
                         apdu_len += len;
                     } else {
@@ -271,11 +285,11 @@ int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
                     }
                 }
             } else {
-                if (rpdata->array_index <=
-                    cdi_descr[object_index].supported_formats_count) {
+                if (rpdata->array_index <= cdi_descr[device_idx][object_index]
+                                               .supported_formats_count) {
                     apdu_len = bacapp_encode_authentication_factor_format(
                         &apdu[0],
-                        &cdi_descr[object_index]
+                        &cdi_descr[device_idx][object_index]
                              .supported_formats[rpdata->array_index - 1]);
                 } else {
                     rpdata->error_class = ERROR_CLASS_PROPERTY;
@@ -287,7 +301,7 @@ int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_UPDATE_TIME:
             apdu_len = bacapp_encode_timestamp(
-                &apdu[0], &cdi_descr[object_index].timestamp);
+                &apdu[0], &cdi_descr[device_idx][object_index].timestamp);
             break;
         default:
             rpdata->error_class = ERROR_CLASS_PROPERTY;
@@ -302,6 +316,7 @@ int Credential_Data_Input_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 /* returns true if successful */
 bool Credential_Data_Input_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
     int len = 0;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
@@ -328,8 +343,8 @@ bool Credential_Data_Input_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
                     wp_data->application_data, &tmp);
                 if (len > 0) {
                     memcpy(
-                        &cdi_descr[object_index].present_value, &tmp,
-                        sizeof(BACNET_AUTHENTICATION_FACTOR));
+                        &cdi_descr[device_idx][object_index].present_value,
+                        &tmp, sizeof(BACNET_AUTHENTICATION_FACTOR));
                 } else {
                     wp_data->error_class = ERROR_CLASS_PROPERTY;
                     wp_data->error_code = ERROR_CODE_INVALID_DATA_TYPE;
@@ -345,7 +360,7 @@ bool Credential_Data_Input_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
                 status = write_property_type_valid(
                     wp_data, &value, BACNET_APPLICATION_TAG_ENUMERATED);
                 if (status) {
-                    cdi_descr[object_index].reliability =
+                    cdi_descr[device_idx][object_index].reliability =
                         (BACNET_RELIABILITY)value.type.Enumerated;
                 }
             } else {

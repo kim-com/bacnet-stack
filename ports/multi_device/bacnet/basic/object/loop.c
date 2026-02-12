@@ -30,11 +30,12 @@
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/debug.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "bacnet/basic/object/loop.h"
 
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List = NULL;
+static OS_Keylist Object_List[MAX_NUM_DEVICES] = { NULL };
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_LOOP;
 /* handling for manipulated and reference properties */
@@ -253,7 +254,8 @@ void Loop_Write_Property_Proprietary_Callback_Set(write_property_function cb)
  */
 static struct object_data *Object_Data(uint32_t object_instance)
 {
-    return Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Data(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -277,7 +279,8 @@ bool Loop_Valid_Instance(uint32_t object_instance)
  */
 unsigned Loop_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -292,7 +295,8 @@ uint32_t Loop_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
 
-    Keylist_Index_Key(Object_List, index, &key);
+    const int device_idx = Routed_Device_Object_Index();
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -308,7 +312,8 @@ uint32_t Loop_Index_To_Instance(unsigned index)
  */
 unsigned Loop_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -497,7 +502,8 @@ BACNET_RELIABILITY Loop_Reliability(uint32_t object_instance)
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         reliability = pObject->Reliability;
     }
@@ -515,7 +521,8 @@ static bool Loop_Fault(uint32_t object_instance)
     struct object_data *pObject;
     bool fault = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Reliability != RELIABILITY_NO_FAULT_DETECTED) {
             fault = true;
@@ -536,7 +543,8 @@ bool Loop_Reliability_Set(uint32_t object_instance, BACNET_RELIABILITY value)
     struct object_data *pObject;
     bool status = false;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             pObject->Reliability = value;
@@ -558,7 +566,8 @@ float Loop_Present_Value(uint32_t object_instance)
     float value = 0.0f;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Present_Value;
     }
@@ -578,7 +587,8 @@ bool Loop_Present_Value_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isfinite(value)) {
             pObject->Present_Value = value;
@@ -601,7 +611,8 @@ uint32_t Loop_Update_Interval(uint32_t object_instance)
     uint32_t value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Update_Interval;
     }
@@ -622,7 +633,8 @@ bool Loop_Update_Interval_Set(uint32_t object_instance, uint32_t value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Update_Interval = value;
         status = true;
@@ -641,7 +653,8 @@ BACNET_ENGINEERING_UNITS Loop_Output_Units(uint32_t object_instance)
     BACNET_ENGINEERING_UNITS units = UNITS_NO_UNITS;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         units = pObject->Output_Units;
     }
@@ -661,7 +674,8 @@ bool Loop_Output_Units_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Output_Units = units;
         status = true;
@@ -729,7 +743,8 @@ bool Loop_Manipulated_Variable_Reference(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_object_property_reference_copy(
             value, &pObject->Manipulated_Variable_Reference);
@@ -755,7 +770,8 @@ bool Loop_Manipulated_Variable_Reference_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_object_property_reference_copy(
             &pObject->Manipulated_Variable_Reference, value);
@@ -783,7 +799,8 @@ bool Loop_Controlled_Variable_Reference(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_object_property_reference_copy(
             value, &pObject->Controlled_Variable_Reference);
@@ -804,7 +821,8 @@ bool Loop_Controlled_Variable_Reference_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_object_property_reference_copy(
             &pObject->Controlled_Variable_Reference, value);
@@ -826,7 +844,8 @@ float Loop_Controlled_Variable_Value(uint32_t object_instance)
     float value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Controlled_Variable_Value;
     }
@@ -846,7 +865,8 @@ bool Loop_Controlled_Variable_Value_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isfinite(value)) {
             pObject->Controlled_Variable_Value = value;
@@ -869,7 +889,8 @@ Loop_Controlled_Variable_Units(uint32_t object_instance)
     BACNET_ENGINEERING_UNITS units = UNITS_NO_UNITS;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         units = pObject->Controlled_Variable_Units;
     }
@@ -890,7 +911,8 @@ bool Loop_Controlled_Variable_Units_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Controlled_Variable_Units = units;
         status = true;
@@ -916,7 +938,8 @@ bool Loop_Setpoint_Reference(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_object_property_reference_copy(
             value, &pObject->Setpoint_Reference);
@@ -937,7 +960,8 @@ bool Loop_Setpoint_Reference_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = bacnet_object_property_reference_copy(
             &pObject->Setpoint_Reference, value);
@@ -958,7 +982,8 @@ float Loop_Setpoint(uint32_t object_instance)
     float value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Setpoint;
     }
@@ -977,7 +1002,8 @@ bool Loop_Setpoint_Set(uint32_t object_instance, float value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (isfinite(value)) {
             pObject->Setpoint = value;
@@ -993,7 +1019,8 @@ BACNET_ACTION Loop_Action(uint32_t object_instance)
     BACNET_ACTION value = 0;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Action;
     }
@@ -1012,7 +1039,8 @@ bool Loop_Action_Set(uint32_t object_instance, BACNET_ACTION value)
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value < BACNET_ACTION_MAX) {
             pObject->Action = value;
@@ -1074,7 +1102,8 @@ Loop_Proportional_Constant_Units(uint32_t object_instance)
     BACNET_ENGINEERING_UNITS units = UNITS_NO_UNITS;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         units = pObject->Proportional_Constant_Units;
     }
@@ -1094,7 +1123,8 @@ bool Loop_Proportional_Constant_Units_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Proportional_Constant_Units = units;
         status = true;
@@ -1153,7 +1183,8 @@ BACNET_ENGINEERING_UNITS Loop_Integral_Constant_Units(uint32_t object_instance)
     BACNET_ENGINEERING_UNITS units = UNITS_NO_UNITS;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         units = pObject->Integral_Constant_Units;
     }
@@ -1173,7 +1204,8 @@ bool Loop_Integral_Constant_Units_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Integral_Constant_Units = units;
         status = true;
@@ -1233,7 +1265,8 @@ Loop_Derivative_Constant_Units(uint32_t object_instance)
     BACNET_ENGINEERING_UNITS units = UNITS_NO_UNITS;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         units = pObject->Derivative_Constant_Units;
     }
@@ -1253,7 +1286,8 @@ bool Loop_Derivative_Constant_Units_Set(
     bool status = false;
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Derivative_Constant_Units = units;
         status = true;
@@ -2219,7 +2253,8 @@ void Loop_Timer(uint32_t object_instance, uint16_t elapsed_milliseconds)
 {
     struct object_data *pObject;
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* update any variable references */
         Loop_Read_Variable_Reference_Update(
@@ -2270,8 +2305,10 @@ uint32_t Loop_Create(uint32_t object_instance)
     struct object_data *pObject = NULL;
     int index;
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    const int device_idx = Routed_Device_Object_Index();
+
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -2281,9 +2318,9 @@ uint32_t Loop_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         /* already exists - signal success but don't change data */
         return object_instance;
@@ -2293,7 +2330,7 @@ uint32_t Loop_Create(uint32_t object_instance)
         /* no RAM available - signal failure */
         return BACNET_MAX_INSTANCE;
     }
-    index = Keylist_Data_Add(Object_List, object_instance, pObject);
+    index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
     if (index < 0) {
         /* unable to add to list - signal failure */
         free(pObject);
@@ -2342,8 +2379,9 @@ uint32_t Loop_Create(uint32_t object_instance)
 bool Loop_Delete(uint32_t object_instance)
 {
     bool status = false;
+    const int device_idx = Routed_Device_Object_Index();
     struct object_data *pObject =
-        Keylist_Data_Delete(Object_List, object_instance);
+        Keylist_Data_Delete(Object_List[device_idx], object_instance);
 
     if (pObject) {
         free(pObject);
@@ -2360,16 +2398,18 @@ void Loop_Cleanup(void)
 {
     struct object_data *pObject;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
 
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -2386,7 +2426,9 @@ size_t Loop_Size(void)
  */
 void Loop_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

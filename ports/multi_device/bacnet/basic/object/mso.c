@@ -28,6 +28,7 @@
 #include "bacnet/proplist.h"
 #include "bacnet/basic/services.h"
 #include "bacnet/basic/sys/keylist.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "mso.h"
 
@@ -45,7 +46,7 @@ struct object_data {
     void *Context;
 };
 /* Key List for storing the object data sorted by instance number  */
-static OS_Keylist Object_List;
+static OS_Keylist Object_List[MAX_NUM_DEVICES];
 /* common object type */
 static const BACNET_OBJECT_TYPE Object_Type = OBJECT_MULTI_STATE_OUTPUT;
 /* callback for present value writes */
@@ -140,8 +141,9 @@ void Multistate_Output_Writable_Property_List(
 bool Multistate_Output_Valid_Instance(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return true;
     }
@@ -155,7 +157,8 @@ bool Multistate_Output_Valid_Instance(uint32_t object_instance)
  */
 unsigned Multistate_Output_Count(void)
 {
-    return Keylist_Count(Object_List);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Count(Object_List[device_idx]);
 }
 
 /**
@@ -167,8 +170,9 @@ unsigned Multistate_Output_Count(void)
 uint32_t Multistate_Output_Index_To_Instance(unsigned index)
 {
     KEY key = UINT32_MAX;
+    const int device_idx = Routed_Device_Object_Index();
 
-    Keylist_Index_Key(Object_List, index, &key);
+    Keylist_Index_Key(Object_List[device_idx], index, &key);
 
     return key;
 }
@@ -182,7 +186,8 @@ uint32_t Multistate_Output_Index_To_Instance(unsigned index)
  */
 unsigned Multistate_Output_Instance_To_Index(uint32_t object_instance)
 {
-    return Keylist_Index(Object_List, object_instance);
+    const int device_idx = Routed_Device_Object_Index();
+    return Keylist_Index(Object_List[device_idx], object_instance);
 }
 
 /**
@@ -244,8 +249,9 @@ uint32_t Multistate_Output_Max_States(uint32_t object_instance)
 {
     uint32_t count = 0;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         count = state_name_count(pObject->State_Text);
     }
@@ -285,8 +291,9 @@ uint32_t Multistate_Output_Present_Value(uint32_t object_instance)
 {
     uint32_t value = 1;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     value = Object_Present_Value(pObject);
 
     return value;
@@ -308,8 +315,9 @@ static int Multistate_Output_Priority_Array_Encode(
     int apdu_len = BACNET_STATUS_ERROR;
     uint32_t value = 1;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject && (priority < BACNET_MAX_PRIORITY)) {
         if (pObject->Relinquished[priority]) {
             apdu_len = encode_application_null(apdu);
@@ -332,8 +340,9 @@ unsigned Multistate_Output_Present_Value_Priority(uint32_t object_instance)
     unsigned p = 0; /* loop counter */
     unsigned priority = 0; /* return value */
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         for (p = 0; p < BACNET_MAX_PRIORITY; p++) {
             if (!pObject->Relinquished[p]) {
@@ -356,8 +365,9 @@ uint32_t Multistate_Output_Relinquish_Default(uint32_t object_instance)
 {
     uint32_t value = 1;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Relinquish_Default;
     }
@@ -376,8 +386,9 @@ bool Multistate_Output_Relinquish_Default_Set(
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Relinquish_Default = value;
         status = true;
@@ -407,8 +418,9 @@ static bool Multistate_Output_Relinquish_Default_Write(
     uint32_t old_value = 0;
     uint32_t new_value = 0;
     unsigned max_states = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         max_states = state_name_count(pObject->State_Text);
         if ((value >= 1) && (value <= max_states)) {
@@ -453,8 +465,9 @@ bool Multistate_Output_Present_Value_Set(
     uint32_t new_value = 0;
     struct object_data *pObject;
     unsigned max_states = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         max_states = state_name_count(pObject->State_Text);
         if ((value >= 1) && (value <= max_states) && (priority >= 1) &&
@@ -484,8 +497,9 @@ bool Multistate_Output_Priority_Array_Relinquished(
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             status = pObject->Relinquished[priority - 1];
@@ -508,8 +522,9 @@ uint32_t Multistate_Output_Priority_Array_Value(
 {
     uint32_t value = 0;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             value = pObject->Priority_Array[priority - 1];
@@ -532,8 +547,9 @@ bool Multistate_Output_Present_Value_Relinquish(
     uint32_t old_value = 0;
     uint32_t new_value = 0;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             old_value = Object_Present_Value(pObject);
@@ -572,8 +588,9 @@ static bool Multistate_Output_Present_Value_Write(
     uint32_t old_value = 0;
     uint32_t new_value = 0;
     unsigned max_states = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         max_states = state_name_count(pObject->State_Text);
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY) &&
@@ -629,8 +646,9 @@ static bool Multistate_Output_Present_Value_Relinquish_Write(
     struct object_data *pObject;
     uint32_t old_value = 0;
     uint32_t new_value = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if ((priority >= 1) && (priority <= BACNET_MAX_PRIORITY)) {
             if (priority != 6) {
@@ -675,8 +693,9 @@ bool Multistate_Output_Out_Of_Service(uint32_t object_instance)
 {
     bool value = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         value = pObject->Out_Of_Service;
     }
@@ -692,8 +711,9 @@ bool Multistate_Output_Out_Of_Service(uint32_t object_instance)
 void Multistate_Output_Out_Of_Service_Set(uint32_t object_instance, bool value)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Out_Of_Service != value) {
             pObject->Out_Of_Service = value;
@@ -717,8 +737,9 @@ bool Multistate_Output_Object_Name(
     bool status = false;
     struct object_data *pObject;
     char name_text[32];
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (pObject->Object_Name) {
             status =
@@ -745,8 +766,9 @@ bool Multistate_Output_Name_Set(uint32_t object_instance, const char *new_name)
 {
     bool status = false; /* return value */
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Object_Name = new_name;
@@ -764,8 +786,9 @@ const char *Multistate_Output_Name_ASCII(uint32_t object_instance)
 {
     const char *name = NULL;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Object_Name;
     }
@@ -785,8 +808,9 @@ Multistate_Output_State_Text(uint32_t object_instance, uint32_t state_index)
 {
     const char *pName = NULL; /* return value */
     const struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (state_index > 0) {
             pName = state_name_by_index(pObject->State_Text, state_index);
@@ -847,8 +871,9 @@ bool Multistate_Output_State_Text_List_Set(
 {
     bool status = false;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->State_Text = state_text_list;
         status = true;
@@ -866,8 +891,9 @@ BACNET_RELIABILITY Multistate_Output_Reliability(uint32_t object_instance)
 {
     BACNET_RELIABILITY reliability = RELIABILITY_NO_FAULT_DETECTED;
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         reliability = (BACNET_RELIABILITY)pObject->Reliability;
     }
@@ -905,8 +931,9 @@ bool Multistate_Output_Reliability_Set(
     struct object_data *pObject;
     bool status = false;
     bool fault = false;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         if (value <= 255) {
             fault = Multistate_Output_Object_Fault(pObject);
@@ -929,8 +956,9 @@ bool Multistate_Output_Reliability_Set(
 static bool Multistate_Output_Fault(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
 
     return Multistate_Output_Object_Fault(pObject);
 }
@@ -944,8 +972,9 @@ const char *Multistate_Output_Description(uint32_t object_instance)
 {
     const char *name = NULL;
     const struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         name = pObject->Description;
     }
@@ -964,8 +993,9 @@ bool Multistate_Output_Description_Set(
 {
     bool status = false; /* return value */
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         status = true;
         pObject->Description = new_name;
@@ -984,8 +1014,9 @@ bool Multistate_Output_Change_Of_Value(uint32_t object_instance)
     bool changed = false;
 
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         changed = pObject->Changed;
     }
@@ -1000,8 +1031,9 @@ bool Multistate_Output_Change_Of_Value(uint32_t object_instance)
 void Multistate_Output_Change_Of_Value_Clear(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Changed = false;
     }
@@ -1022,8 +1054,9 @@ bool Multistate_Output_Encode_Value_List(
     bool fault = false;
     const bool overridden = false;
     uint32_t present_value = 1;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         fault = Multistate_Output_Object_Fault(pObject);
         present_value = Object_Present_Value(pObject);
@@ -1279,8 +1312,9 @@ void Multistate_Output_Write_Present_Value_Callback_Set(
 void *Multistate_Output_Context_Get(uint32_t object_instance)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         return pObject->Context;
     }
@@ -1296,8 +1330,9 @@ void *Multistate_Output_Context_Get(uint32_t object_instance)
 void Multistate_Output_Context_Set(uint32_t object_instance, void *context)
 {
     struct object_data *pObject;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (pObject) {
         pObject->Context = context;
     }
@@ -1313,9 +1348,10 @@ uint32_t Multistate_Output_Create(uint32_t object_instance)
     struct object_data *pObject = NULL;
     int index = 0;
     unsigned priority = 0;
+    const int device_idx = Routed_Device_Object_Index();
 
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    if (!Object_List[device_idx]) {
+        Object_List[device_idx] = Keylist_Create();
     }
     if (object_instance > BACNET_MAX_INSTANCE) {
         return BACNET_MAX_INSTANCE;
@@ -1325,9 +1361,9 @@ uint32_t Multistate_Output_Create(uint32_t object_instance)
             shall be initialized to a value that is unique within the
             responding BACnet-user device. The method used to generate
             the object identifier is a local matter.*/
-        object_instance = Keylist_Next_Empty_Key(Object_List, 1);
+        object_instance = Keylist_Next_Empty_Key(Object_List[device_idx], 1);
     }
-    pObject = Keylist_Data(Object_List, object_instance);
+    pObject = Keylist_Data(Object_List[device_idx], object_instance);
     if (!pObject) {
         pObject = calloc(1, sizeof(struct object_data));
         if (pObject) {
@@ -1342,7 +1378,7 @@ uint32_t Multistate_Output_Create(uint32_t object_instance)
             }
             pObject->Relinquish_Default = 1;
             /* add to list */
-            index = Keylist_Data_Add(Object_List, object_instance, pObject);
+            index = Keylist_Data_Add(Object_List[device_idx], object_instance, pObject);
             if (index < 0) {
                 free(pObject);
                 return BACNET_MAX_INSTANCE;
@@ -1364,8 +1400,9 @@ bool Multistate_Output_Delete(uint32_t object_instance)
 {
     bool status = false;
     struct object_data *pObject = NULL;
+    const int device_idx = Routed_Device_Object_Index();
 
-    pObject = Keylist_Data_Delete(Object_List, object_instance);
+    pObject = Keylist_Data_Delete(Object_List[device_idx], object_instance);
     if (pObject) {
         free(pObject);
         status = true;
@@ -1380,16 +1417,19 @@ bool Multistate_Output_Delete(uint32_t object_instance)
 void Multistate_Output_Cleanup(void)
 {
     struct object_data *pObject;
+    int device_idx = 0;
 
-    if (Object_List) {
-        do {
-            pObject = Keylist_Data_Pop(Object_List);
-            if (pObject) {
-                free(pObject);
-            }
-        } while (pObject);
-        Keylist_Delete(Object_List);
-        Object_List = NULL;
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (Object_List[device_idx]) {
+            do {
+                pObject = Keylist_Data_Pop(Object_List[device_idx]);
+                if (pObject) {
+                    free(pObject);
+                }
+            } while (pObject);
+            Keylist_Delete(Object_List[device_idx]);
+            Object_List[device_idx] = NULL;
+        }
     }
 }
 
@@ -1398,7 +1438,11 @@ void Multistate_Output_Cleanup(void)
  */
 void Multistate_Output_Init(void)
 {
-    if (!Object_List) {
-        Object_List = Keylist_Create();
+    int device_idx = 0;
+
+    for (device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+        if (!Object_List[device_idx]) {
+            Object_List[device_idx] = Keylist_Create();
+        }
     }
 }

@@ -15,12 +15,13 @@
 #include "bacnet/bacapp.h"
 #include "bacnet/wp.h"
 #include "bacnet/basic/services.h"
+#include "bacnet/basic/object/device.h"
 /* me! */
 #include "access_zone.h"
 
 static bool Access_Zone_Initialized = false;
 
-static ACCESS_ZONE_DESCR az_descr[MAX_ACCESS_ZONES];
+static ACCESS_ZONE_DESCR az_descr[MAX_NUM_DEVICES][MAX_ACCESS_ZONES];
 
 /* These three arrays are used by the ReadPropertyMultiple handler */
 static const int32_t Properties_Required[] = {
@@ -85,16 +86,20 @@ void Access_Zone_Init(void)
     if (!Access_Zone_Initialized) {
         Access_Zone_Initialized = true;
 
-        for (i = 0; i < MAX_ACCESS_ZONES; i++) {
-            az_descr[i].global_identifier =
-                0; /* set to some meaningful value */
-            az_descr[i].occupancy_state = ACCESS_ZONE_OCCUPANCY_STATE_DISABLED;
-            az_descr[i].event_state = EVENT_STATE_NORMAL;
-            az_descr[i].reliability = RELIABILITY_NO_FAULT_DETECTED;
-            az_descr[i].out_of_service = false;
-            az_descr[i].entry_points_count = 0;
-            az_descr[i].exit_points_count = 0;
-            /* fill in the entry points and exit points with proper ids */
+        for (int device_idx = 0; device_idx < MAX_NUM_DEVICES; device_idx++) {
+            for (i = 0; i < MAX_ACCESS_ZONES; i++) {
+                az_descr[device_idx][i].global_identifier =
+                    0; /* set to some meaningful value */
+                az_descr[device_idx][i].occupancy_state =
+                    ACCESS_ZONE_OCCUPANCY_STATE_DISABLED;
+                az_descr[device_idx][i].event_state = EVENT_STATE_NORMAL;
+                az_descr[device_idx][i].reliability =
+                    RELIABILITY_NO_FAULT_DETECTED;
+                az_descr[device_idx][i].out_of_service = false;
+                az_descr[device_idx][i].entry_points_count = 0;
+                az_descr[device_idx][i].exit_points_count = 0;
+                /* fill in the entry points and exit points with proper ids */
+            }
         }
     }
 
@@ -161,12 +166,13 @@ bool Access_Zone_Object_Name(
 
 bool Access_Zone_Out_Of_Service(uint32_t instance)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
     bool oos_flag = false;
 
     index = Access_Zone_Instance_To_Index(instance);
     if (index < MAX_ACCESS_ZONES) {
-        oos_flag = az_descr[index].out_of_service;
+        oos_flag = az_descr[device_idx][index].out_of_service;
     }
 
     return oos_flag;
@@ -174,17 +180,19 @@ bool Access_Zone_Out_Of_Service(uint32_t instance)
 
 void Access_Zone_Out_Of_Service_Set(uint32_t instance, bool oos_flag)
 {
+    const int device_idx = Routed_Device_Object_Index();
     unsigned index = 0;
 
     index = Access_Zone_Instance_To_Index(instance);
     if (index < MAX_ACCESS_ZONES) {
-        az_descr[index].out_of_service = oos_flag;
+        az_descr[device_idx][index].out_of_service = oos_flag;
     }
 }
 
 /* return apdu len, or BACNET_STATUS_ERROR on error */
 int Access_Zone_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 {
+    const int device_idx = Routed_Device_Object_Index();
     int len = 0;
     int apdu_len = 0; /* return value */
     BACNET_BIT_STRING bit_string;
@@ -216,11 +224,11 @@ int Access_Zone_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_GLOBAL_IDENTIFIER:
             apdu_len = encode_application_unsigned(
-                &apdu[0], az_descr[object_index].global_identifier);
+                &apdu[0], az_descr[device_idx][object_index].global_identifier);
             break;
         case PROP_OCCUPANCY_STATE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], az_descr[object_index].occupancy_state);
+                &apdu[0], az_descr[device_idx][object_index].occupancy_state);
             break;
         case PROP_STATUS_FLAGS:
             bitstring_init(&bit_string);
@@ -233,20 +241,23 @@ int Access_Zone_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
         case PROP_EVENT_STATE:
             apdu_len = encode_application_enumerated(
-                &apdu[0], az_descr[object_index].event_state);
+                &apdu[0], az_descr[device_idx][object_index].event_state);
             break;
         case PROP_RELIABILITY:
             apdu_len = encode_application_enumerated(
-                &apdu[0], az_descr[object_index].reliability);
+                &apdu[0], az_descr[device_idx][object_index].reliability);
             break;
         case PROP_OUT_OF_SERVICE:
             state = Access_Zone_Out_Of_Service(rpdata->object_instance);
             apdu_len = encode_application_boolean(&apdu[0], state);
             break;
         case PROP_ENTRY_POINTS:
-            for (i = 0; i < az_descr[object_index].entry_points_count; i++) {
+            for (i = 0;
+                 i < az_descr[device_idx][object_index].entry_points_count;
+                 i++) {
                 len = bacapp_encode_device_obj_ref(
-                    &apdu[0], &az_descr[object_index].entry_points[i]);
+                    &apdu[0],
+                    &az_descr[device_idx][object_index].entry_points[i]);
                 if (apdu_len + len < MAX_APDU) {
                     apdu_len += len;
                 } else {
@@ -258,9 +269,12 @@ int Access_Zone_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             }
             break;
         case PROP_EXIT_POINTS:
-            for (i = 0; i < az_descr[object_index].exit_points_count; i++) {
+            for (i = 0;
+                 i < az_descr[device_idx][object_index].exit_points_count;
+                 i++) {
                 len = bacapp_encode_device_obj_ref(
-                    &apdu[0], &az_descr[object_index].exit_points[i]);
+                    &apdu[0],
+                    &az_descr[device_idx][object_index].exit_points[i]);
                 if (apdu_len + len < MAX_APDU) {
                     apdu_len += len;
                 } else {
@@ -284,6 +298,7 @@ int Access_Zone_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
 /* returns true if successful */
 bool Access_Zone_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
 {
+    const int device_idx = Routed_Device_Object_Index();
     bool status = false; /* return value */
     int len = 0;
     BACNET_APPLICATION_DATA_VALUE value = { 0 };
@@ -305,7 +320,7 @@ bool Access_Zone_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
             status = write_property_type_valid(
                 wp_data, &value, BACNET_APPLICATION_TAG_UNSIGNED_INT);
             if (status) {
-                az_descr[object_index].global_identifier =
+                az_descr[device_idx][object_index].global_identifier =
                     value.type.Unsigned_Int;
             }
             break;
@@ -314,7 +329,7 @@ bool Access_Zone_Write_Property(BACNET_WRITE_PROPERTY_DATA *wp_data)
                 status = write_property_type_valid(
                     wp_data, &value, BACNET_APPLICATION_TAG_ENUMERATED);
                 if (status) {
-                    az_descr[object_index].reliability =
+                    az_descr[device_idx][object_index].reliability =
                         (BACNET_RELIABILITY)value.type.Enumerated;
                 }
             } else {
