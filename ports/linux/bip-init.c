@@ -708,14 +708,14 @@ static char *ifname_default(void)
     /* Send the request */
     if (send(sock, nlMsg, nlMsg->nlmsg_len, 0) < 0) {
         debug_fprintf(stderr, "BIP: Write To Socket Failed...\n");
-        debug_fprintf(stdout, "BIP_Interface_Name : %s", BIP_Interface_Name);
+        debug_fprintf(stdout, "BIP_Interface_Name : %s\n", BIP_Interface_Name);
         return BIP_Interface_Name;
     }
     /* Read the response */
     if ((len = readNlSock(sock, msgBuf, sizeof(msgBuf), msgSeq, getpid())) <
         0) {
         debug_fprintf(stderr, "BIP: Read From Socket Failed...\n");
-        debug_fprintf(stdout, "BIP_Interface_Name : %s", BIP_Interface_Name);
+        debug_fprintf(stdout, "BIP_Interface_Name : %s\n", BIP_Interface_Name);
         return BIP_Interface_Name;
     }
     /* Parse and print the response */
@@ -728,10 +728,10 @@ static char *ifname_default(void)
         parseRoutes(nlMsg, rtInfo);
         printRoute(rtInfo);
         if (BIP_Interface_Name[0] == 0) {
-            debug_fprintf(stdout, "rtInfo->dstAddr: %d ", rtInfo->dstAddr);
-            debug_fprintf(stdout, "rtInfo->srcAddr: %d ", rtInfo->srcAddr);
-            debug_fprintf(stdout, "rtInfo->gateWay: %d ", rtInfo->gateWay);
-            debug_fprintf(stdout, "rtInfo->ifName: %s ", rtInfo->ifName);
+            debug_fprintf(stdout, "rtInfo->dstAddr: %d\n", rtInfo->dstAddr);
+            debug_fprintf(stdout, "rtInfo->srcAddr: %d\n", rtInfo->srcAddr);
+            debug_fprintf(stdout, "rtInfo->gateWay: %d\n", rtInfo->gateWay);
+            debug_fprintf(stdout, "rtInfo->ifName: %s\n", rtInfo->ifName);
             if ((rtInfo->dstAddr == 0) && (rtInfo->ifName[0] != 0)) {
                 /* default route */
                 memcpy(
@@ -743,7 +743,7 @@ static char *ifname_default(void)
     free(rtInfo);
     close(sock);
 
-    debug_fprintf(stdout, "BIP_Interface_Name : %s", BIP_Interface_Name);
+    debug_fprintf(stdout, "BIP_Interface_Name : %s\n", BIP_Interface_Name);
 
     return BIP_Interface_Name;
 }
@@ -927,7 +927,7 @@ bool bip_init(char *ifname)
     struct sockaddr_in broadcast_sin_config;
     int broadcast_sock_fd;
 
-    debug_fprintf(stdout, "ifname : %s", ifname);
+    debug_fprintf(stdout, "ifname : %s\n", ifname);
     if (ifname) {
         snprintf(BIP_Interface_Name, sizeof(BIP_Interface_Name), "%s", ifname);
         bip_set_interface(ifname);
