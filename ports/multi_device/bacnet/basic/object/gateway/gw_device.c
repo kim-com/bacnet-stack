@@ -73,8 +73,18 @@ uint16_t Num_Managed_Devices = 0;
  * Since we are not using actual class objects here, the best we can do is
  * keep this local variable which notes which of the Devices the current
  * request is addressing.  Should default to 0, the main gateway Device.
+ *
+ * NOTE: Uses TLS (Thread-Local Storage) to enable multi-thread support.
+ * In a multi-threaded environment, each thread maintains an independent value,
+ * preventing race conditions when multiple threads access this variable.
  */
-uint16_t iCurrent_Device_Idx = 0;
+#if defined(__GNUC__)
+__thread uint16_t iCurrent_Device_Idx = 0;
+#elif defined(_MSC_VER)
+__declspec(thread) uint16_t iCurrent_Device_Idx = 0;
+#else
+#error "Thread-local storage not supported on this platform"
+#endif
 
 uint16_t Routed_Device_Object_Index(void)
 {
