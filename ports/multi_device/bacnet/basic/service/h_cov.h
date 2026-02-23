@@ -34,6 +34,8 @@ void handler_cov_task(void);
 BACNET_STACK_EXPORT
 void handler_cov_timer_seconds(uint32_t elapsed_seconds);
 BACNET_STACK_EXPORT
+void cov_init(void);
+BACNET_STACK_EXPORT
 void handler_cov_init(void);
 BACNET_STACK_EXPORT
 int handler_cov_encode_subscriptions(uint8_t *apdu, int max_apdu);

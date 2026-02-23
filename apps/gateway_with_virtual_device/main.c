@@ -415,6 +415,8 @@ int main(int argc, char *argv[])
     Setup_All_Devices(first_object_instance);
     Initialize_Router_Announcements();
 
+    cov_init();
+
 #ifdef BACNET_TEST_VMAC
     /* initialize vmac table and router device */
     device = vmac_initialize(99, 2001);
