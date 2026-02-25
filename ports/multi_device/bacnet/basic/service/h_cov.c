@@ -409,7 +409,9 @@ static void remove_subscription(int dev_index, int index) {
 static void add_subscription(int dev_index, int index) {
     int head_index = Head_Index[dev_index];
     // update next node's previous pointer
-    Subscriptions_List[dev_index][head_index].prev_index = index;
+    if (head_index != -1) {
+        Subscriptions_List[dev_index][head_index].prev_index = index;
+    }
 
     // update current node's next pointer
     Subscriptions_List[dev_index][index].next_index = head_index;
