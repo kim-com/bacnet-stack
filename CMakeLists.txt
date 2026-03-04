@@ -519,6 +519,8 @@ add_library(${PROJECT_NAME}
   src/bacnet/basic/sys/key.h
   src/bacnet/basic/sys/keylist.c
   src/bacnet/basic/sys/keylist.h
+  src/bacnet/basic/sys/linked_list.c
+  src/bacnet/basic/sys/linked_list.h
   src/bacnet/basic/sys/linear.c
   src/bacnet/basic/sys/linear.h
   src/bacnet/basic/sys/lighting_command.c
