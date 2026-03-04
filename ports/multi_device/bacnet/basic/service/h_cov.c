@@ -22,6 +22,7 @@
 #include "bacnet/cov.h"
 #include "bacnet/dcc.h"
 #include "bacnet/basic/sys/debug.h"
+#include "bacnet/basic/sys/linked_list.h"
 #if PRINT_ENABLED
 #include "bacnet/bactext.h"
 #endif
@@ -59,20 +60,16 @@ typedef struct BACnet_COV_Subscription {
 } BACNET_COV_SUBSCRIPTION;
 
 typedef struct BACnet_COV_Subscription_Node {
+    LINKED_LIST_NODE node;
     BACNET_COV_SUBSCRIPTION subscription;
-    int prev_index;
-    int next_index;
 } BACNET_COV_SUBSCRIPTION_NODE;
 
 #ifndef MAX_COV_SUBCRIPTIONS
 #define MAX_COV_SUBCRIPTIONS 128
 #endif
-static BACNET_COV_SUBSCRIPTION_NODE Subscriptions_List[MAX_NUM_DEVICES][MAX_COV_SUBCRIPTIONS] = {0};
-/* Improve iteration performance in handler_cov_fsm()
-   from (MAX_NUM_DEVICES * MAX_COV_SUBSCRITPTIONS)
-   to   active subscriptions */
-static int Head_Index[MAX_NUM_DEVICES] = {0}; /* -1 when the list is empty, update at insertion, deletion,  */
-static int Lowest_Available_Index[MAX_NUM_DEVICES] = {0}; /* -1 when full, update at insertion, deletion  */
+static BACNET_COV_SUBSCRIPTION_NODE
+    Subscriptions_List[MAX_NUM_DEVICES][MAX_COV_SUBCRIPTIONS] = { 0 };
+static LINKED_LIST_CTX Subscriptions_Ctx[MAX_NUM_DEVICES] = { 0 };
 #ifndef MAX_COV_ADDRESSES
 #define MAX_COV_ADDRESSES 16
 #endif
@@ -108,20 +105,21 @@ static void cov_address_remove_unused(void)
     unsigned cov_index = 0;
     unsigned dev_index = 0;
     bool found = false;
-    unsigned index = 0;
-    
-    BACNET_COV_SUBSCRIPTION subscription = {0};
+    BACNET_COV_SUBSCRIPTION_NODE *node = NULL;
+
     for (cov_index = 0; cov_index < MAX_COV_ADDRESSES; cov_index++) {
         if (COV_Addresses[cov_index].valid) {
             found = false;
             for (dev_index = 0; dev_index < MAX_NUM_DEVICES; dev_index++) {
-                for (index = Head_Index[dev_index]; index != -1; index = Subscriptions_List[dev_index][index].next_index) {
-                    subscription = Subscriptions_List[dev_index][index].subscription;
-                    if (subscription.flag.valid && subscription.dest_index == cov_index) {
+                for (node = activelist_first(&Subscriptions_Ctx[dev_index]);
+                     node != NULL; node = activelist_next(
+                                       &Subscriptions_Ctx[dev_index], node)) {
+                    if (node->subscription.flag.valid &&
+                        node->subscription.dest_index == cov_index) {
                         found = true;
                         break;
                     }
-                } 
+                }
                 if (found) {
                     break;
                 }
@@ -131,7 +129,6 @@ static void cov_address_remove_unused(void)
             }
         }
     }
-
 }
 /**
  * Adds the address to the list of COV addresses
@@ -308,15 +305,16 @@ int handler_cov_encode_subscriptions(uint8_t *apdu, int max_apdu)
         };
         int apdu_len = 0;
         const int dev_index = Routed_Device_Object_Index();
-        unsigned index = Head_Index[dev_index];
-        while (index != -1) {
-            BACNET_COV_SUBSCRIPTION subscription = Subscriptions_List[dev_index][index].subscription;
-            if (subscription.flag.valid) {
+        BACNET_COV_SUBSCRIPTION_NODE *node = NULL;
+
+        for (node = activelist_first(&Subscriptions_Ctx[dev_index]);
+             node != NULL;
+             node = activelist_next(&Subscriptions_Ctx[dev_index], node)) {
+            if (node->subscription.flag.valid) {
                 /* Lets encode a COV subscription into an intermediate buffer
                  * that can hold it */
                 int len = cov_encode_subscription(
-                    &cov_sub[0], max_apdu - apdu_len,
-                    &subscription);
+                    &cov_sub[0], max_apdu - apdu_len, &node->subscription);
 
                 if ((apdu_len + len) > max_apdu) {
                     return -2;
@@ -325,8 +323,6 @@ int handler_cov_encode_subscriptions(uint8_t *apdu, int max_apdu)
                 /* Lets copy if and only if it fits in the buffer */
                 memcpy(&apdu[apdu_len], cov_sub, len);
                 apdu_len += len;
-                
-                index = Subscriptions_List[dev_index][index].next_index;
             }
         }
 
@@ -337,102 +333,49 @@ int handler_cov_encode_subscriptions(uint8_t *apdu, int max_apdu)
 }
 
 /* Init at start */
-void cov_init(void) {
+void cov_init(void)
+{
     for (unsigned dev_index = 0; dev_index < MAX_NUM_DEVICES; dev_index++) {
-        Head_Index[dev_index] = -1;
-        for (unsigned index = 0; index < MAX_COV_SUBCRIPTIONS; index++) {
-            Subscriptions_List[dev_index][index].next_index = -1;
-            Subscriptions_List[dev_index][index].prev_index = -1;
-        }
+        linked_list_init(
+            &Subscriptions_Ctx[dev_index], Subscriptions_List[dev_index],
+            MAX_COV_SUBCRIPTIONS, sizeof(BACNET_COV_SUBSCRIPTION_NODE));
     }
 }
 
 /** Handler to initialize the COV list, clearing and disabling each entry.
  * @ingroup DSCOV
  */
-void handler_cov_init(void) {
+void handler_cov_init(void)
+{
     unsigned index = 0;
     for (unsigned dev_index = 0; dev_index < MAX_NUM_DEVICES; dev_index++) {
-        Head_Index[dev_index] = -1;
-        Lowest_Available_Index[dev_index] = 0;
-        for (index = 0; index < MAX_COV_SUBCRIPTIONS; index++) {
-            Subscriptions_List[dev_index][index].next_index = -1;
-            Subscriptions_List[dev_index][index].prev_index = -1;
+        linked_list_init(
+            &Subscriptions_Ctx[dev_index], Subscriptions_List[dev_index],
+            MAX_COV_SUBCRIPTIONS, sizeof(BACNET_COV_SUBSCRIPTION_NODE));
 
+        for (index = 0; index < MAX_COV_SUBCRIPTIONS; index++) {
             /* initialize with invalid COV address */
-            Subscriptions_List[dev_index][index].subscription.flag.valid = false;
-            Subscriptions_List[dev_index][index].subscription.dest_index = MAX_COV_ADDRESSES;
-            Subscriptions_List[dev_index][index].subscription.subscriberProcessIdentifier = 0;
-            Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.type =
+            Subscriptions_List[dev_index][index].subscription.flag.valid =
+                false;
+            Subscriptions_List[dev_index][index].subscription.dest_index =
+                MAX_COV_ADDRESSES;
+            Subscriptions_List[dev_index][index]
+                .subscription.subscriberProcessIdentifier = 0;
+            Subscriptions_List[dev_index][index]
+                .subscription.monitoredObjectIdentifier.type =
                 OBJECT_ANALOG_INPUT;
-            Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.instance = 0;
-            Subscriptions_List[dev_index][index].subscription.flag.issueConfirmedNotifications = false;
+            Subscriptions_List[dev_index][index]
+                .subscription.monitoredObjectIdentifier.instance = 0;
+            Subscriptions_List[dev_index][index]
+                .subscription.flag.issueConfirmedNotifications = false;
             Subscriptions_List[dev_index][index].subscription.invokeID = 0;
             Subscriptions_List[dev_index][index].subscription.lifetime = 0;
-            Subscriptions_List[dev_index][index].subscription.flag.send_requested = false;
+            Subscriptions_List[dev_index][index]
+                .subscription.flag.send_requested = false;
         }
     }
     for (index = 0; index < MAX_COV_ADDRESSES; index++) {
         COV_Addresses[index].valid = false;
-    }
-}
-
-
-static void remove_subscription(int dev_index, int index) {
-    int prev_index = 0;
-    int next_index = 0;
-    prev_index = Subscriptions_List[dev_index][index].prev_index;
-    next_index = Subscriptions_List[dev_index][index].next_index;
-
-    // update previous node's next pointer
-    if (prev_index == -1) {
-        Head_Index[dev_index] = next_index;
-    } else {
-        Subscriptions_List[dev_index][prev_index].next_index = Subscriptions_List[dev_index][index].next_index;
-    }
-    
-    // update next node's previous pointer
-    if (next_index != -1) {
-        Subscriptions_List[dev_index][next_index].prev_index = prev_index;
-    }
-
-    // Clear the removed node's links
-    Subscriptions_List[dev_index][index].prev_index = -1;
-    Subscriptions_List[dev_index][index].next_index = -1;
-    
-    // update Lowest_Available_Index if this index is now the lowest free slot
-    if (index < Lowest_Available_Index[dev_index]) {
-        Lowest_Available_Index[dev_index] = index;
-    }
-}
-
-static void add_subscription(int dev_index, int index) {
-    int head_index = Head_Index[dev_index];
-    // update next node's previous pointer
-    if (head_index != -1) {
-        Subscriptions_List[dev_index][head_index].prev_index = index;
-    }
-
-    // update current node's next pointer
-    Subscriptions_List[dev_index][index].next_index = head_index;
-
-    // set current node's previous pointer to -1
-    Subscriptions_List[dev_index][index].prev_index = -1;
-
-    // update head
-    Head_Index[dev_index] = index;
-
-    // manage Lowest available index
-    index++;
-    while (index < MAX_COV_SUBCRIPTIONS) {
-        if (Subscriptions_List[dev_index][index].prev_index == -1) {
-            Lowest_Available_Index[dev_index] = index;
-            break;
-        }
-        index++;
-    }
-    if (index == MAX_COV_SUBCRIPTIONS) {
-        Lowest_Available_Index[dev_index] = -1;
     }
 }
 
@@ -443,56 +386,62 @@ static bool cov_list_subscribe(
     BACNET_ERROR_CODE *error_code)
 {
     bool existing_entry = false;
-    int index;
     bool found = true;
     bool address_match = false;
     const BACNET_ADDRESS *dest = NULL;
+    BACNET_COV_SUBSCRIPTION_NODE *node = NULL;
+    BACNET_COV_SUBSCRIPTION_NODE *new_node = NULL;
 
     /* unable to subscribe - resources? */
     /* unable to cancel subscription - other? */
 
     const int dev_index = Routed_Device_Object_Index();
-    
+
     /* existing? - match Object ID and Process ID and address */
-    for (index = Head_Index[dev_index]; index != -1; index = Subscriptions_List[dev_index][index].next_index) {
-        if (Subscriptions_List[dev_index][index].subscription.flag.valid) {
-            dest = cov_address_get(Subscriptions_List[dev_index][index].subscription.dest_index);
+    for (node = activelist_first(&Subscriptions_Ctx[dev_index]); node != NULL;
+         node = activelist_next(&Subscriptions_Ctx[dev_index], node)) {
+        if (node->subscription.flag.valid) {
+            dest = cov_address_get(node->subscription.dest_index);
             if (dest) {
                 address_match = bacnet_address_same(src, dest);
             } else {
                 /* skip address matching - we don't have an address */
                 address_match = true;
             }
-            if (Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.type == 
-                cov_data->monitoredObjectIdentifier.type &&
-                Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.instance == 
-                cov_data->monitoredObjectIdentifier.instance &&
-                Subscriptions_List[dev_index][index].subscription.subscriberProcessIdentifier == 
-                cov_data->subscriberProcessIdentifier &&
+            if (node->subscription.monitoredObjectIdentifier.type ==
+                    cov_data->monitoredObjectIdentifier.type &&
+                node->subscription.monitoredObjectIdentifier.instance ==
+                    cov_data->monitoredObjectIdentifier.instance &&
+                node->subscription.subscriberProcessIdentifier ==
+                    cov_data->subscriberProcessIdentifier &&
                 address_match) {
                 existing_entry = true;
                 if (cov_data->cancellationRequest) {
                     /* initialize with invalid COV address */
-                    Subscriptions_List[dev_index][index].subscription.flag.valid = false;
-                    Subscriptions_List[dev_index][index].subscription.dest_index = MAX_COV_ADDRESSES;
-                    remove_subscription(dev_index, index);
+                    node->subscription.flag.valid = false;
+                    node->subscription.dest_index = MAX_COV_ADDRESSES;
+                    activelist_remove_and_free(
+                        &Subscriptions_Ctx[dev_index], node);
                     cov_address_remove_unused();
                 } else {
                     /* update the existing subscription */
-                    Subscriptions_List[dev_index][index].subscription.dest_index = cov_address_add(src);
-                    Subscriptions_List[dev_index][index].subscription.flag.issueConfirmedNotifications = cov_data->issueConfirmedNotifications;
-                    Subscriptions_List[dev_index][index].subscription.lifetime = cov_data->lifetime;
-                    Subscriptions_List[dev_index][index].subscription.flag.send_requested = true;
+                    node->subscription.dest_index = cov_address_add(src);
+                    node->subscription.flag.issueConfirmedNotifications =
+                        cov_data->issueConfirmedNotifications;
+                    node->subscription.lifetime = cov_data->lifetime;
+                    node->subscription.flag.send_requested = true;
                 }
-                if (Subscriptions_List[dev_index][index].subscription.invokeID) {
-                    tsm_free_invoke_id(Subscriptions_List[dev_index][index].subscription.invokeID);
-                    Subscriptions_List[dev_index][index].subscription.invokeID = 0;
+                if (node->subscription.invokeID) {
+                    tsm_free_invoke_id(node->subscription.invokeID);
+                    node->subscription.invokeID = 0;
                 }
                 break;
             }
         }
     }
-    if (!existing_entry && (Lowest_Available_Index[dev_index] >= 0) && (!cov_data->cancellationRequest)) {
+    if (!existing_entry &&
+        !linked_list_is_full(&Subscriptions_Ctx[dev_index]) &&
+        (!cov_data->cancellationRequest)) {
         /* add a new subscription */
         const int addr_add_ret = cov_address_add(src);
         if (addr_add_ret < 0) {
@@ -500,27 +449,33 @@ static bool cov_list_subscribe(
             *error_code = ERROR_CODE_NO_SPACE_TO_ADD_LIST_ELEMENT;
             found = false;
         } else {
-            index = Lowest_Available_Index[dev_index];
-            found = true;
-            
-            Subscriptions_List[dev_index][index].subscription.dest_index = addr_add_ret;
-            Subscriptions_List[dev_index][index].subscription.flag.valid = true;
-            Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.type =
-                cov_data->monitoredObjectIdentifier.type;
-            Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.instance =
-                cov_data->monitoredObjectIdentifier.instance;
-            Subscriptions_List[dev_index][index].subscription.subscriberProcessIdentifier =
-                cov_data->subscriberProcessIdentifier;
-            Subscriptions_List[dev_index][index].subscription.flag.issueConfirmedNotifications =
-                cov_data->issueConfirmedNotifications;
-            Subscriptions_List[dev_index][index].subscription.invokeID = 0;
-            Subscriptions_List[dev_index][index].subscription.lifetime = cov_data->lifetime;
-            Subscriptions_List[dev_index][index].subscription.flag.send_requested = true;
+            new_node = freelist_alloc(&Subscriptions_Ctx[dev_index]);
+            if (new_node == NULL) {
+                *error_class = ERROR_CLASS_RESOURCES;
+                *error_code = ERROR_CODE_NO_SPACE_TO_ADD_LIST_ELEMENT;
+                found = false;
+            } else {
+                found = true;
 
-            add_subscription(dev_index, index);
+                new_node->subscription.dest_index = addr_add_ret;
+                new_node->subscription.flag.valid = true;
+                new_node->subscription.monitoredObjectIdentifier.type =
+                    cov_data->monitoredObjectIdentifier.type;
+                new_node->subscription.monitoredObjectIdentifier.instance =
+                    cov_data->monitoredObjectIdentifier.instance;
+                new_node->subscription.subscriberProcessIdentifier =
+                    cov_data->subscriberProcessIdentifier;
+                new_node->subscription.flag.issueConfirmedNotifications =
+                    cov_data->issueConfirmedNotifications;
+                new_node->subscription.invokeID = 0;
+                new_node->subscription.lifetime = cov_data->lifetime;
+                new_node->subscription.flag.send_requested = true;
+
+                activelist_add(&Subscriptions_Ctx[dev_index], new_node);
+            }
         }
     } else if (!existing_entry) {
-        if (Lowest_Available_Index[dev_index] < 0) {
+        if (linked_list_is_full(&Subscriptions_Ctx[dev_index])) {
             /* Out of resources */
             *error_class = ERROR_CLASS_RESOURCES;
             *error_code = ERROR_CODE_NO_SPACE_TO_ADD_LIST_ELEMENT;
@@ -619,50 +574,61 @@ COV_FAILED:
     return status;
 }
 
-static void cov_lifetime_expiration_handler(
-    unsigned dev_index, unsigned index, uint32_t elapsed_seconds, uint32_t lifetime_seconds)
+static BACNET_COV_SUBSCRIPTION_NODE *cov_lifetime_expiration_handler(
+    unsigned dev_index,
+    BACNET_COV_SUBSCRIPTION_NODE *node,
+    uint32_t elapsed_seconds,
+    uint32_t lifetime_seconds)
 {
-    if (index < MAX_COV_SUBCRIPTIONS) {
-        /* handle lifetime expiration */
-        
-        if (lifetime_seconds >= elapsed_seconds) {
-            Subscriptions_List[dev_index][index].subscription.lifetime -= elapsed_seconds;
+    BACNET_COV_SUBSCRIPTION_NODE *next_node = NULL;
+
+    if (node == NULL) {
+        return NULL;
+    }
+
+    /* handle lifetime expiration */
+    if (lifetime_seconds >= elapsed_seconds) {
+        node->subscription.lifetime -= elapsed_seconds;
 #if 0
-            fprintf(stderr, "COVtimer: subscription[%d][%d].lifetime=%lu\n", dev_index, index,
-                (unsigned long) Subscriptions_List[dev_index][index].subscription.lifetime);
+        fprintf(stderr, "COVtimer: subscription lifetime=%lu\n",
+            (unsigned long) node->subscription.lifetime);
 #endif
-        } else {
-            Subscriptions_List[dev_index][index].subscription.lifetime = 0;
-        }
-        if (Subscriptions_List[dev_index][index].subscription.lifetime == 0) {
-            /* expire the subscription */
+        next_node = activelist_next(&Subscriptions_Ctx[dev_index], node);
+    } else {
+        node->subscription.lifetime = 0;
+    }
+
+    if (node->subscription.lifetime == 0) {
+        /* expire the subscription */
 #if PRINT_ENABLED
-            fprintf(
-                stderr, "COVtimer: PID=%u ",
-                Subscriptions_List[dev_index][index].subscription.subscriberProcessIdentifier);
-            fprintf(
-                stderr, "%s %u ",
-                bactext_object_type_name(
-                    Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.type),
-                Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.instance);
-            fprintf(
-                stderr, "time remaining=%u seconds ",
-                Subscriptions_List[dev_index][index].subscription.lifetime);
-            fprintf(stderr, "\n");
+        fprintf(
+            stderr, "COVtimer: PID=%u ",
+            node->subscription.subscriberProcessIdentifier);
+        fprintf(
+            stderr, "%s %u ",
+            bactext_object_type_name(
+                node->subscription.monitoredObjectIdentifier.type),
+            node->subscription.monitoredObjectIdentifier.instance);
+        fprintf(
+            stderr, "time remaining=%u seconds ", node->subscription.lifetime);
+        fprintf(stderr, "\n");
 #endif
-            /* initialize with invalid COV address */
-            Subscriptions_List[dev_index][index].subscription.flag.valid = false;
-            Subscriptions_List[dev_index][index].subscription.dest_index = MAX_COV_ADDRESSES;
-            remove_subscription(dev_index, index);
-            cov_address_remove_unused();
-            if (Subscriptions_List[dev_index][index].subscription.flag.issueConfirmedNotifications) {
-                if (Subscriptions_List[dev_index][index].subscription.invokeID) {
-                    tsm_free_invoke_id(Subscriptions_List[dev_index][index].subscription.invokeID);
-                    Subscriptions_List[dev_index][index].subscription.invokeID = 0;
-                }
+        /* free invoke ID before removal */
+        if (node->subscription.flag.issueConfirmedNotifications) {
+            if (node->subscription.invokeID) {
+                tsm_free_invoke_id(node->subscription.invokeID);
+                node->subscription.invokeID = 0;
             }
         }
+        /* initialize with invalid COV address */
+        node->subscription.flag.valid = false;
+        node->subscription.dest_index = MAX_COV_ADDRESSES;
+        next_node =
+            activelist_remove_and_free(&Subscriptions_Ctx[dev_index], node);
+        cov_address_remove_unused();
     }
+
+    return next_node;
 }
 
 /** Handler to check the list of subscribed objects for any that have changed
@@ -688,19 +654,25 @@ static void cov_lifetime_expiration_handler(
  */
 void handler_cov_timer_seconds(uint32_t elapsed_seconds)
 {
-    unsigned index = 0;
+    BACNET_COV_SUBSCRIPTION_NODE *node = NULL;
     uint32_t lifetime_seconds = 0;
 
     if (elapsed_seconds) {
         /* handle the subscription timeouts */
         for (unsigned dev_index = 0; dev_index < MAX_NUM_DEVICES; dev_index++) {
-            for (index = Head_Index[dev_index]; index != -1; index = Subscriptions_List[dev_index][index].next_index) {
-                if (Subscriptions_List[dev_index][index].subscription.flag.valid) {
-                    lifetime_seconds = Subscriptions_List[dev_index][index].subscription.lifetime;
+            node = activelist_first(&Subscriptions_Ctx[dev_index]);
+            while (node != NULL) {
+                if (node->subscription.flag.valid) {
+                    lifetime_seconds = node->subscription.lifetime;
                     if (lifetime_seconds) {
-                        cov_lifetime_expiration_handler(
-                            dev_index, index, elapsed_seconds, lifetime_seconds);
+                        node = cov_lifetime_expiration_handler(
+                            dev_index, node, elapsed_seconds, lifetime_seconds);
+                    } else {
+                        node = activelist_next(
+                            &Subscriptions_Ctx[dev_index], node);
                     }
+                } else {
+                    node = activelist_next(&Subscriptions_Ctx[dev_index], node);
                 }
             }
         }
@@ -710,7 +682,7 @@ void handler_cov_timer_seconds(uint32_t elapsed_seconds)
 bool handler_cov_fsm(void)
 {
     static int dev_index = 0;
-    static int index = -1;
+    static BACNET_COV_SUBSCRIPTION_NODE *current_node = NULL;
     BACNET_OBJECT_TYPE object_type = MAX_BACNET_OBJECT_TYPE;
     uint32_t object_instance = 0;
     bool status = false;
@@ -729,17 +701,18 @@ bool handler_cov_fsm(void)
     Set_Routed_Device_Object_Index(dev_index);
     switch (cov_task_state) {
         case COV_STATE_IDLE:
-            index = -1;
+            current_node = NULL;
             cov_task_state = COV_STATE_MARK;
             break;
         case COV_STATE_MARK:
-            if (index == -1) {
-                index = Head_Index[dev_index];
+            if (current_node == NULL) {
+                current_node = activelist_first(&Subscriptions_Ctx[dev_index]);
             } else {
-                index = Subscriptions_List[dev_index][index].next_index;
+                current_node = activelist_next(
+                    &Subscriptions_Ctx[dev_index], current_node);
             }
-            
-            if (index == -1) {
+
+            if (current_node == NULL) {
                 dev_index++;
                 if (dev_index >= MAX_NUM_DEVICES) {
                     dev_index = 0;
@@ -749,14 +722,14 @@ bool handler_cov_fsm(void)
             }
 
             /* mark any subscriptions where the value has changed */
-            if (index != -1 && Subscriptions_List[dev_index][index].subscription.flag.valid) {
-                object_type = (BACNET_OBJECT_TYPE)Subscriptions_List[dev_index][index].subscription
+            if (current_node != NULL && current_node->subscription.flag.valid) {
+                object_type = (BACNET_OBJECT_TYPE)current_node->subscription
                                   .monitoredObjectIdentifier.type;
-                object_instance =
-                    Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.instance;
+                object_instance = current_node->subscription
+                                      .monitoredObjectIdentifier.instance;
                 status = Device_COV(object_type, object_instance);
                 if (status) {
-                    Subscriptions_List[dev_index][index].subscription.flag.send_requested = true;
+                    current_node->subscription.flag.send_requested = true;
 #if PRINT_ENABLED
                     fprintf(stderr, "COVtask: Marking...\n");
 #endif
@@ -764,13 +737,14 @@ bool handler_cov_fsm(void)
             }
             break;
         case COV_STATE_CLEAR:
-            if (index == -1) {
-                index = Head_Index[dev_index];
+            if (current_node == NULL) {
+                current_node = activelist_first(&Subscriptions_Ctx[dev_index]);
             } else {
-                index = Subscriptions_List[dev_index][index].next_index;
+                current_node = activelist_next(
+                    &Subscriptions_Ctx[dev_index], current_node);
             }
-            
-            if (index == -1) {
+
+            if (current_node == NULL) {
                 dev_index++;
                 if (dev_index >= MAX_NUM_DEVICES) {
                     dev_index = 0;
@@ -779,24 +753,24 @@ bool handler_cov_fsm(void)
                 }
             }
             /* clear the COV flag after checking all subscriptions */
-            if (index != -1 &&
-                (Subscriptions_List[dev_index][index].subscription.flag.valid) &&
-                (Subscriptions_List[dev_index][index].subscription.flag.send_requested)) {
-                object_type = (BACNET_OBJECT_TYPE)Subscriptions_List[dev_index][index].subscription
+            if (current_node != NULL && current_node->subscription.flag.valid &&
+                current_node->subscription.flag.send_requested) {
+                object_type = (BACNET_OBJECT_TYPE)current_node->subscription
                                   .monitoredObjectIdentifier.type;
-                object_instance =
-                    Subscriptions_List[dev_index][index].subscription.monitoredObjectIdentifier.instance;
+                object_instance = current_node->subscription
+                                      .monitoredObjectIdentifier.instance;
                 Device_COV_Clear(object_type, object_instance);
             }
             break;
         case COV_STATE_FREE:
-            if (index == -1) {
-                index = Head_Index[dev_index];
+            if (current_node == NULL) {
+                current_node = activelist_first(&Subscriptions_Ctx[dev_index]);
             } else {
-                index = Subscriptions_List[dev_index][index].next_index;
+                current_node = activelist_next(
+                    &Subscriptions_Ctx[dev_index], current_node);
             }
-            
-            if (index == -1) {
+
+            if (current_node == NULL) {
                 dev_index++;
                 if (dev_index >= MAX_NUM_DEVICES) {
                     dev_index = 0;
@@ -805,27 +779,27 @@ bool handler_cov_fsm(void)
                 }
             }
             /* confirmed notification house keeping */
-            if (index != -1 &&
-                (Subscriptions_List[dev_index][index].subscription.flag.valid) &&
-                (Subscriptions_List[dev_index][index].subscription.flag.issueConfirmedNotifications) &&
-                (Subscriptions_List[dev_index][index].subscription.invokeID)) {
-                if (tsm_invoke_id_free(Subscriptions_List[dev_index][index].subscription.invokeID)) {
-                    Subscriptions_List[dev_index][index].subscription.invokeID = 0;
+            if (current_node != NULL && current_node->subscription.flag.valid &&
+                current_node->subscription.flag.issueConfirmedNotifications &&
+                current_node->subscription.invokeID) {
+                if (tsm_invoke_id_free(current_node->subscription.invokeID)) {
+                    current_node->subscription.invokeID = 0;
                 } else if (tsm_invoke_id_failed(
-                               Subscriptions_List[dev_index][index].subscription.invokeID)) {
-                    tsm_free_invoke_id(Subscriptions_List[dev_index][index].subscription.invokeID);
-                    Subscriptions_List[dev_index][index].subscription.invokeID = 0;
+                               current_node->subscription.invokeID)) {
+                    tsm_free_invoke_id(current_node->subscription.invokeID);
+                    current_node->subscription.invokeID = 0;
                 }
             }
             break;
         case COV_STATE_SEND:
-            if (index == -1) {
-                index = Head_Index[dev_index];
+            if (current_node == NULL) {
+                current_node = activelist_first(&Subscriptions_Ctx[dev_index]);
             } else {
-                index = Subscriptions_List[dev_index][index].next_index;
+                current_node = activelist_next(
+                    &Subscriptions_Ctx[dev_index], current_node);
             }
-            
-            if (index == -1) {
+
+            if (current_node == NULL) {
                 dev_index++;
                 if (dev_index >= MAX_NUM_DEVICES) {
                     dev_index = 0;
@@ -834,12 +808,12 @@ bool handler_cov_fsm(void)
                 }
             }
             /* send any COVs that are requested */
-            if (index != -1 &&
-                (Subscriptions_List[dev_index][index].subscription.flag.valid) &&
-                (Subscriptions_List[dev_index][index].subscription.flag.send_requested)) {
+            if (current_node != NULL && current_node->subscription.flag.valid &&
+                current_node->subscription.flag.send_requested) {
                 send = true;
-                if (Subscriptions_List[dev_index][index].subscription.flag.issueConfirmedNotifications) {
-                    if (Subscriptions_List[dev_index][index].subscription.invokeID != 0) {
+                if (current_node->subscription.flag
+                        .issueConfirmedNotifications) {
+                    if (current_node->subscription.invokeID != 0) {
                         /* already sending */
                         send = false;
                     }
@@ -849,9 +823,9 @@ bool handler_cov_fsm(void)
                     }
                 }
                 if (send) {
-                    object_type = (BACNET_OBJECT_TYPE)Subscriptions_List[dev_index][index].subscription
+                    object_type = (BACNET_OBJECT_TYPE)current_node->subscription
                                       .monitoredObjectIdentifier.type;
-                    object_instance = Subscriptions_List[dev_index][index].subscription
+                    object_instance = current_node->subscription
                                           .monitoredObjectIdentifier.instance;
 #if PRINT_ENABLED
                     fprintf(stderr, "COVtask: Sending...\n");
@@ -863,16 +837,16 @@ bool handler_cov_fsm(void)
                         object_type, object_instance, &value_list[0]);
                     if (status) {
                         status = cov_send_request(
-                            &Subscriptions_List[dev_index][index].subscription, &value_list[0]);
+                            &current_node->subscription, &value_list[0]);
                     }
                     if (status) {
-                        Subscriptions_List[dev_index][index].subscription.flag.send_requested = false;
+                        current_node->subscription.flag.send_requested = false;
                     }
                 }
             }
             break;
         default:
-            index = -1;
+            current_node = NULL;
             dev_index = 0;
             cov_task_state = COV_STATE_IDLE;
             break;
@@ -885,8 +859,9 @@ bool handler_cov_fsm(void)
 void handler_cov_task(void)
 {
     /* TODOKHS: 1. Use thread
-                2. Call fsm() by dozens of times */ 
-    while(!handler_cov_fsm());
+                2. Call fsm() by dozens of times */
+    while (!handler_cov_fsm())
+        ;
 }
 
 static bool cov_subscribe(
