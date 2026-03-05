@@ -102,12 +102,14 @@ static void Create_Gateway_And_Virtual_Devices(uint32_t first_object_instance)
         gateway_ai_instance);
 
     for (i = 1; i < MAX_NUM_DEVICES; i++) {
-        debug_fprintf(stdout,"==============================================");
-        debug_fprintf(stdout,"Device Inx : %d", first_object_instance + i);
-        debug_fprintf(stdout,"==============================================");
-        snprintf(nameText, MAX_DEV_NAME_LEN, "%s %d", DEV_NAME_BASE, i + 1);
+        debug_fprintf(
+            stdout, "==============================================\n");
+        debug_fprintf(stdout, "Device Inx : %d\n", first_object_instance + i);
+        debug_fprintf(
+            stdout, "==============================================\n");
+        snprintf(nameText, MAX_DEV_NAME_LEN, "%s %d\n", DEV_NAME_BASE, i + 1);
 
-        snprintf(descText, MAX_DEV_DESC_LEN, "%s %d", DEV_DESCR_REMOTE, i);
+        snprintf(descText, MAX_DEV_DESC_LEN, "%s %d\n", DEV_DESCR_REMOTE, i);
 
         characterstring_init_ansi(&name_string, nameText);
 
@@ -118,16 +120,17 @@ static void Create_Gateway_And_Virtual_Devices(uint32_t first_object_instance)
         static char ai_name[MAX_NUM_DEVICES][MAX_DEV_NAME_LEN] = {
             0,
         };
-        snprintf(ai_name[i], MAX_DEV_NAME_LEN, "AI %d", virtual_ai_instance);
+        snprintf(ai_name[i], MAX_DEV_NAME_LEN, "AI %d\n", virtual_ai_instance);
 
         float ai_initial_value = 20.0f + (i * 10.0f);
 
         Analog_Input_Create(virtual_ai_instance);
         Analog_Input_Name_Set(virtual_ai_instance, ai_name[i]);
         Analog_Input_Present_Value_Set(virtual_ai_instance, ai_initial_value);
-        debug_fprintf(stdout,
-            "Virtual Device %d: Created Analog Input instance %d with name "
-            "'%s' (value: %.1f)",
+        debug_fprintf(
+            stdout,
+            "Virtual Device %d: Created Analog Input instance %d with name %s "
+            "(value: %.1f)\n",
             i, virtual_ai_instance, ai_name[i], ai_initial_value);
 
         uint32_t virtual_ao_instance = 3000 + i;
@@ -139,24 +142,43 @@ static void Create_Gateway_And_Virtual_Devices(uint32_t first_object_instance)
 
         float ao_initial_value = 20.0f + (i * 10.0f);
         uint32_t ao_instance = Analog_Output_Create(virtual_ao_instance);
+
+        // set the name
         bool name_set = Analog_Output_Name_Set(virtual_ao_instance, ao_name[i]);
+
+        // set the relinquish default
         bool relinquish = Analog_Output_Relinquish_Default_Set(
             virtual_ao_instance, ao_initial_value);
+
+        // set the units
         bool units_set =
             Analog_Output_Units_Set(virtual_ao_instance, UNITS_DEGREES_CELSIUS);
+
+        // set the max and min pres value
+        Analog_Output_Max_Pres_Value_Set(ao_instance, 300.f);
+        Analog_Output_Min_Pres_Value_Set(ao_instance, 0.f);
+        float ao_max = Analog_Output_Max_Pres_Value(ao_instance);
+        float ao_min = Analog_Output_Min_Pres_Value(ao_instance);
+
+        // set the present value
         bool present_value_set = Analog_Output_Present_Value_Set(
             virtual_ao_instance, ao_initial_value, BACNET_MAX_PRIORITY);
+
+        // set the description
         bool description_set = Analog_Output_Description_Set(
             virtual_ao_instance, "Analog Output Description");
 
-        debug_fprintf(stdout, "ao_instance: %d", ao_instance);
-        debug_fprintf(stdout, "name_set: %d", name_set);
-        debug_fprintf(stdout, "relinquish: %d", relinquish);
-        debug_fprintf(stdout, "units_set: %d", units_set);
-        debug_fprintf(stdout, "ao_initial_value: %.2f", ao_initial_value);
-        debug_fprintf(stdout, "present_value_set: %d", present_value_set);
-        debug_fprintf(stdout, "description_set: %d", description_set);
-        debug_fprintf(stdout, "==============================================");
+        debug_fprintf(stdout, "ao_instance: %d\n", ao_instance);
+        debug_fprintf(stdout, "name_set: %d\n", name_set);
+        debug_fprintf(stdout, "relinquish: %d\n", relinquish);
+        debug_fprintf(stdout, "units_set: %d\n", units_set);
+        debug_fprintf(stdout, "ao_initial_value: %.2f\n", ao_initial_value);
+        debug_fprintf(stdout, "present_value_set: %d\n", present_value_set);
+        debug_fprintf(stdout, "description_set: %d\n", description_set);
+        debug_fprintf(stdout, "ao_max: %f\n", ao_max);
+        debug_fprintf(stdout, "ao_min: %f\n", ao_min);
+        debug_fprintf(
+            stdout, "==============================================\n");
     }
 }
 
@@ -206,10 +228,10 @@ static void Initialize_Device_Addresses(void)
         if (pDev == NULL) {
             continue;
         }
-        
+
         pDev->bacDevAddr.net = VIRTUAL_DNET;
         pDev->bacDevAddr.mac_len = 0;
-        
+
         memset(pDev->bacDevAddr.mac, 0, MAX_MAC_LEN);
         pDev->bacDevAddr.adr[0] = 192;
         pDev->bacDevAddr.adr[1] = 168;
@@ -282,7 +304,9 @@ static void Main_Event_Loop(void)
         pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
 
         if (pdu_len) {
-            debug_fprintf(stdout,"Received PDU: %d bytes from network %d", pdu_len, src.net);
+            debug_fprintf(
+                stdout, "Received PDU: %d bytes from network %d\n", pdu_len,
+                src.net);
             routing_npdu_handler(&src, DNET_list, &Rx_Buf[0], pdu_len);
         }
 
