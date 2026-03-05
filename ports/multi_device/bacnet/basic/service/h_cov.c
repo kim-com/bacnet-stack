@@ -332,18 +332,9 @@ int handler_cov_encode_subscriptions(uint8_t *apdu, int max_apdu)
     return 0;
 }
 
-/* Init at start */
-void cov_init(void)
-{
-    for (unsigned dev_index = 0; dev_index < MAX_NUM_DEVICES; dev_index++) {
-        linked_list_init(
-            &Subscriptions_Ctx[dev_index], Subscriptions_List[dev_index],
-            MAX_COV_SUBCRIPTIONS, sizeof(BACNET_COV_SUBSCRIPTION_NODE));
-    }
-}
-
 /** Handler to initialize the COV list, clearing and disabling each entry.
  * @ingroup DSCOV
+ * @note Must be called before starting the BACnet main loop.
  */
 void handler_cov_init(void)
 {
