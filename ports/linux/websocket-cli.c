@@ -416,17 +416,16 @@ static int bws_cli_websocket_event(
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
             pthread_mutex_lock(&bws_cli_mutex);
             h = bws_cli_find_connnection(wsi);
-            if (h != BSC_WEBSOCKET_INVALID_HANDLE) {
+            if (h != BSC_WEBSOCKET_INVALID_HANDLE &&
+                bws_cli_conn[h].state != BSC_WEBSOCKET_STATE_IDLE) {
                 bws_cli_conn[h].state = BSC_WEBSOCKET_STATE_DISCONNECTING;
                 if (reason == LWS_CALLBACK_CLIENT_CONNECTION_ERROR && in) {
                     bws_set_err_desc(h, (char *)in);
                 }
-                pthread_mutex_unlock(&bws_cli_mutex);
                 /* wakeup worker to process pending event */
                 lws_cancel_service(bws_cli_conn[h].ctx);
-            } else {
-                pthread_mutex_unlock(&bws_cli_mutex);
             }
+            pthread_mutex_unlock(&bws_cli_mutex);
             break;
         }
         default: {
