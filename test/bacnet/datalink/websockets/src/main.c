@@ -1497,8 +1497,8 @@ static void test_onoff(void)
         BSC_WEBSOCKET_HUB_PROTOCOL, url, ca_cert, sizeof(ca_cert), client_cert,
         sizeof(client_cert), CLIENT_KEY, sizeof(CLIENT_KEY), DEFAULT_TIMEOUT,
         cli_event, &cli_ctx, &h);
-    bws_cli_disconnect(h);
     wait_for_event(&cli_ctx, BSC_WEBSOCKET_DISCONNECTED);
+    // bws_cli_disconnect(h);
 }
 
 #if defined(CONFIG_ZTEST_NEW_API)
