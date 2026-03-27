@@ -113,7 +113,7 @@ option(
 option(
   INTRINSIC_REPORTING
   "enable intrinsic reporting"
-  OFF)
+  ON)
 
 set(BACNET_PROTOCOL_REVISION 28)
 
